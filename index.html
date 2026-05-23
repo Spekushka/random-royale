@@ -459,7 +459,7 @@
     <span class="toggle-slider"></span>
   </label>
   <span class="toggle-label" id="heroism-toggle-label">Supercell-стиль</span>
-  <span style="color:var(--muted);font-size:10px;margin-left:6px">— Evo + Win Condition + Building + Big spell + Small spell + Air troop · avg 3.4–4.6</span>
+  <span style="color:var(--muted);font-size:10px;margin-left:6px">— Win-con + по возможности: Evo, Building, 2 Spell, Air</span>
 </div>
 
 <div class="wrap">
@@ -786,9 +786,10 @@ let currentDeck = null;
 
 async function init() {
   processCards(OFFICIAL_CARDS);
-  setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo`);
+  const champCount = allCards.filter(c => c.rarity === "Champion").length;
+  setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo · ${champCount} Champions`);
   const leg = document.getElementById("legend-stats");
-  if (leg) leg.textContent = `${evoCards.length} Evo · Heroes = модификация · данные: api.clashroyale.com`;
+  if (leg) leg.textContent = `${evoCards.length} Evo · ${champCount} Champions · данные: api.clashroyale.com`;
 }
 
 // Official Supercell API data (api.clashroyale.com/v1/cards), May 2026
