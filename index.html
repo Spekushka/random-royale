@@ -161,7 +161,7 @@
 
     .deck-card {
       background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
-      padding: 10px 4px 22px; text-align: center;
+      padding: 6px 4px 22px; text-align: center;
       animation: popIn .25s ease both; position: relative;
     }
     @keyframes popIn { from { opacity:0; transform:scale(.65) rotate(-4deg); } to { opacity:1; transform:scale(1) rotate(0); } }
@@ -241,7 +241,9 @@
       .note-box { font-size: 10.5px; }
     }
 
-    .deck-card .dc-icon  { font-size: 24px; display: block; margin-bottom: 3px; }
+    .deck-card .dc-icon  { font-size: 24px; display: block; margin-bottom: 3px; line-height: 1; }
+    .deck-card .dc-img   { width: 56px; height: 56px; object-fit: contain; display: block; margin: 0 auto 3px; }
+    @media (max-width: 480px) { .deck-card .dc-img { width: 44px; height: 44px; } }
     .deck-card .dc-name  { font-size: 9px; color: var(--muted); line-height: 1.25; }
     .deck-card .dc-rarity { display:block; width:6px; height:6px; border-radius:50%; margin:4px auto 0; }
     .Common    { background: var(--muted); }
@@ -1181,7 +1183,10 @@ function _renderDeckDOM(deck) {
     return `<div class="deck-card ${cls}" style="animation-delay:${i*35}ms">
       <span class="dc-elixir">${card.elixir}💧</span>
       ${badge}
-      <span class="dc-icon">${emoji}</span>
+      <img class="dc-img" src="https://cdn.royaleapi.com/static/img/cards-150/${card.key}.png"
+           alt="${card.name}" loading="lazy"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <span class="dc-icon" style="display:none">${emoji}</span>
       <span class="dc-name">${card.name}</span>
       <span class="dc-rarity ${card.rarity}"></span>
       ${(evoBtn||heroBtn||wildBtn) ? `<div class="dc-toggles">${evoBtn}${heroBtn}${wildBtn}</div>` : ""}
