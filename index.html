@@ -787,8 +787,6 @@ async function init() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const raw = await res.json();
     processCards(raw);
-    const excluded = raw.filter(c => c.type === "Tower Troop" || c.key.startsWith("super-") || ["party-hut","party-rocket","santa-hog-rider"].includes(c.key));
-    console.log(`API: ${raw.length} total, excluded: ${excluded.map(c=>c.key).join(", ")}, result: ${allCards.length}`);
     setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo`);
   } catch(e) {
     setStatus("error", "⚠️ Офлайн — встроенный пул");
@@ -796,9 +794,29 @@ async function init() {
   }
 }
 
+// Cards missing from cr-api-data (added manually)
+const MISSING_CARDS = [
+  {key:"little-prince",      name:"Little Prince",      id:26000078,elixir:3,type:"Troop",  rarity:"Champion"},
+  {key:"goblinstein",        name:"Goblinstein",         id:26000088,elixir:5,type:"Troop",  rarity:"Champion"},
+  {key:"boss-bandit",        name:"Boss Bandit",         id:26000103,elixir:3,type:"Troop",  rarity:"Champion"},
+  {key:"suspicious-bush",    name:"Suspicious Bush",     id:26000097,elixir:2,type:"Troop",  rarity:"Rare"},
+  {key:"goblin-demolisher",  name:"Goblin Demolisher",   id:26000095,elixir:5,type:"Troop",  rarity:"Epic"},
+  {key:"goblin-machine",     name:"Goblin Machine",      id:26000096,elixir:4,type:"Troop",  rarity:"Rare"},
+  {key:"rune-giant",         name:"Rune Giant",          id:26000101,elixir:6,type:"Troop",  rarity:"Epic",  evolved_spells_sc_key:"RuneGiant_EV1"},
+  {key:"berserker",          name:"Berserker",           id:26000102,elixir:3,type:"Troop",  rarity:"Common",evolved_spells_sc_key:"Berserker_EV1"},
+  {key:"spirit-empress",     name:"Spirit Empress",      id:28000025,elixir:4,type:"Spell",  rarity:"Legendary"},
+  {key:"vines",              name:"Vines",               id:28000026,elixir:4,type:"Spell",  rarity:"Epic"},
+];
+
 function processCards(raw) {
+  // Patch heal-spirit type (cr-api-data has it as Troop, it's actually a Spell)
+  raw = raw.map(c => c.key === "heal-spirit" ? {...c, type:"Spell"} : c);
+
+  // Inject missing cards not yet in cr-api-data
+  const existingKeys = new Set(raw.map(c => c.key));
+  MISSING_CARDS.forEach(c => { if (!existingKeys.has(c.key)) raw.push(c); });
+
   allCards = raw
-    // Exclude Tower Troops and Champion-rarity cards (can't be played in normal decks)
     .filter(c => c.type !== "Tower Troop"
       && !c.key.startsWith("super-")
       && !["party-hut","party-rocket","santa-hog-rider"].includes(c.key)
