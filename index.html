@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CR Random Deck Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d1117;
+      --bg2:     #161b22;
+      --bg3:     #21262d;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #8b949e;
+      --orange:  #f0883e;
+      --green:   #3fb950;
+      --blue:    #388bfd;
+      --purple:  #bf91f3;
+      --red:     #f85149;
+      --yellow:  #ffa657;
+      --cyan:    #39d3f3;
+      --gold:    #ffd700;
+    }
+
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header {
+      background: linear-gradient(135deg, #1a1f2e, var(--bg));
+      border-bottom: 1px solid var(--border);
+      padding: 18px 24px;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left .logo { font-size: 32px; }
+    header h1 { font-size: 20px; font-weight: 800; color: var(--orange); letter-spacing: -.5px; }
+    header p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    #status-badge {
+      font-size: 12px; padding: 5px 12px; border-radius: 20px;
+      border: 1px solid var(--border); color: var(--muted);
+      display: flex; align-items: center; gap: 6px;
+    }
+    #status-badge.ready { border-color: var(--green); color: var(--green); }
+    #status-badge.error { border-color: var(--red);   color: var(--red); }
+    .spinner {
+      width: 10px; height: 10px; border: 2px solid var(--border);
+      border-top-color: var(--muted); border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .legend-bar {
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      padding: 8px 24px; display: flex; gap: 16px; flex-wrap: wrap;
+      font-size: 11px; color: var(--muted);
+    }
+    .legend-bar .litem { display: flex; align-items: center; gap: 5px; }
+    .lbadge { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; }
+    .lb-evo  { background: #f0883e33; color: var(--orange); border: 1px solid var(--orange); }
+    .lb-hero { background: #39d3f333; color: var(--cyan);   border: 1px solid var(--cyan); }
+    .lb-wild { background: #bf91f333; color: var(--purple); border: 1px solid var(--purple); }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 16px 60px; }
+
+    .section-title {
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    /* ── MODES GRID ── */
+    .modes-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 9px; margin-bottom: 32px;
+    }
+    .mode-btn {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 13px; cursor: pointer; transition: all .18s;
+      text-align: left; display: flex; flex-direction: column; gap: 5px;
+      position: relative; overflow: hidden;
+    }
+    .mode-btn::after {
+      content:''; position:absolute; inset:0; opacity:0; transition: opacity .18s;
+      border-radius: 12px;
+      background: radial-gradient(ellipse at top left, color-mix(in srgb, var(--ac, #f0883e) 12%, transparent), transparent 70%);
+    }
+    .mode-btn:hover { border-color: var(--ac, var(--orange)); transform: translateY(-2px); box-shadow: 0 8px 24px #0007; }
+    .mode-btn:hover::after { opacity: 1; }
+    .mode-btn.active { border-color: var(--ac, var(--orange)); background: color-mix(in srgb, var(--ac, var(--orange)) 8%, var(--bg2)); }
+    .mode-btn .mode-icon { font-size: 22px; position: relative; z-index: 1; }
+    .mode-btn .mode-name { font-size: 13px; font-weight: 700; color: var(--text); position: relative; z-index: 1; transition: color .15s; }
+    .mode-btn .mode-desc { font-size: 10.5px; color: var(--muted); line-height: 1.4; position: relative; z-index: 1; }
+    .mode-btn:hover .mode-name, .mode-btn.active .mode-name { color: var(--ac, var(--orange)); }
+
+    .mode-btn[data-mode="full"]      { --ac: var(--green); }
+    .mode-btn[data-mode="buildings"] { --ac: var(--yellow); }
+    .mode-btn[data-mode="spells"]    { --ac: var(--purple); }
+    .mode-btn[data-mode="troops"]    { --ac: var(--blue); }
+    .mode-btn[data-mode="heroes"]    { --ac: var(--cyan); }
+    .mode-btn[data-mode="heroism"]   { --ac: var(--cyan); }
+    .mode-btn[data-mode="evo"]       { --ac: var(--orange); }
+    .mode-btn[data-mode="mixed"]     { --ac: var(--purple); }
+    .mode-btn[data-mode="newcards"]  { --ac: var(--cyan); }
+    .mode-btn[data-mode="cheap"]     { --ac: var(--green); }
+    .mode-btn[data-mode="expensive"] { --ac: var(--red); }
+    .mode-btn[data-mode="lowelixir"] { --ac: var(--green); }
+    .mode-btn[data-mode="cycle"]     { --ac: var(--cyan); }
+    .mode-btn[data-mode="beatdown"]  { --ac: var(--yellow); }
+    .mode-btn[data-mode="siege"]     { --ac: var(--yellow); }
+    .mode-btn[data-mode="control"]   { --ac: var(--purple); }
+    .mode-btn[data-mode="bridge"]    { --ac: var(--red); }
+    .mode-btn[data-mode="bait"]      { --ac: var(--gold); }
+    .mode-btn[data-mode="legendary"] { --ac: var(--yellow); }
+    .mode-btn[data-mode="commons"]   { --ac: var(--muted); }
+    .mode-btn[data-mode="funnylore"] { --ac: var(--orange); }
+
+    /* ── RESULT ── */
+    #result-area { display: none; }
+    #result-area.visible { display: block; }
+
+    .result-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+    }
+    .result-header h2 { font-size: 18px; font-weight: 700; }
+
+    .reroll-btn {
+      padding: 9px 20px; background: linear-gradient(135deg, var(--orange), #d4722a);
+      border: none; border-radius: 8px; color: #fff; font-weight: 700;
+      font-size: 14px; cursor: pointer; transition: all .15s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .reroll-btn:hover { filter: brightness(1.15); transform: scale(1.03); }
+
+    .deck-display {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px; margin-bottom: 16px;
+    }
+
+    .slot-labels {
+      display: grid; grid-template-columns: repeat(8, 1fr);
+      gap: 8px; margin-bottom: 4px;
+    }
+    @media (max-width: 600px) { .slot-labels, .deck-cards { grid-template-columns: repeat(4, 1fr); } }
+
+    .slot-label {
+      text-align: center; font-size: 8.5px; color: var(--border);
+      font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+    }
+    .slot-label.evo-slot  { color: var(--orange); }
+    .slot-label.hero-slot { color: var(--cyan); }
+    .slot-label.wild-slot { color: var(--purple); }
+
+    .deck-cards {
+      display: grid; grid-template-columns: repeat(8, 1fr);
+      gap: 8px; margin-bottom: 16px;
+    }
+
+    .deck-card {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 4px 22px; text-align: center;
+      animation: popIn .25s ease both; position: relative;
+    }
+    @keyframes popIn { from { opacity:0; transform:scale(.65) rotate(-4deg); } to { opacity:1; transform:scale(1) rotate(0); } }
+
+    .deck-card.is-evo  { border-color: var(--orange); background: #f0883e0f; }
+    .deck-card.is-hero { border-color: var(--cyan);   background: #39d3f310; }
+    .deck-card.is-wild { border-color: var(--purple); background: #bf91f310; }
+
+    .deck-card .dc-elixir { position:absolute; top:4px; left:5px; font-size:9px; color:var(--purple); font-weight:700; }
+    .deck-card .dc-tag {
+      position:absolute; top:3px; right:3px;
+      font-size:7.5px; padding:1px 3px; border-radius:3px; font-weight:800; line-height:1.4;
+    }
+    .tag-evo  { background: var(--orange); color: #fff; }
+    .tag-hero { background: var(--cyan);   color: #000; }
+    .tag-wild { background: var(--purple); color: #fff; }
+
+    /* per-card reroll button */
+    .dc-reroll {
+      position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+      font-size: 11px; background: transparent; border: none;
+      color: var(--border); cursor: pointer; transition: all .12s;
+      line-height: 1; padding: 2px;
+    }
+    .dc-reroll:hover { color: var(--orange); transform: translateX(-50%) rotate(180deg); }
+
+    /* clickable slot-type toggles below each card */
+    .dc-toggles {
+      display: flex; justify-content: center; gap: 3px; margin-top: 4px;
+    }
+    .dc-toggle {
+      font-size: 7px; font-weight: 800; padding: 1px 4px; border-radius: 3px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer; transition: all .12s; line-height: 1.5;
+    }
+    .dc-toggle:hover { border-color: var(--text); color: var(--text); }
+    .dc-toggle.t-evo.on  { border-color: var(--orange); background: #f0883e33; color: var(--orange); }
+    .dc-toggle.t-hero.on { border-color: var(--cyan);   background: #39d3f333; color: var(--cyan); }
+    .dc-toggle.t-wild.on { border-color: var(--purple); background: #bf91f333; color: var(--purple); }
+
+    /* ── MOBILE ── */
+    @media (max-width: 480px) {
+      header { padding: 12px 14px; }
+      header h1 { font-size: 17px; }
+      header p  { display: none; }
+      #status-badge { font-size: 11px; padding: 4px 9px; }
+
+      .legend-bar { padding: 6px 14px; gap: 8px; font-size: 10px; }
+      .legend-bar .litem:last-child { display: none; }
+
+      .wrap { padding: 16px 10px 50px; }
+      .section-title { font-size: 11px; }
+
+      .modes-grid { grid-template-columns: repeat(2, 1fr); gap: 7px; margin-bottom: 20px; }
+      .mode-btn { padding: 11px 10px; border-radius: 10px; gap: 4px; }
+      .mode-btn .mode-icon { font-size: 18px; }
+      .mode-btn .mode-name { font-size: 12px; }
+      .mode-btn .mode-desc { display: none; }
+
+      .result-header h2 { font-size: 15px; }
+      .reroll-btn { padding: 8px 14px; font-size: 13px; }
+
+      .deck-display { padding: 12px 10px; }
+      .slot-labels  { grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 3px; }
+      .deck-cards   { grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 10px; }
+      .deck-card    { padding: 8px 3px 22px; border-radius: 8px; }
+      .deck-card .dc-icon  { font-size: 20px; }
+      .deck-card .dc-name  { font-size: 8px; }
+      .deck-card .dc-elixir { font-size: 8px; }
+
+      .deck-stats { gap: 8px; font-size: 11px; }
+
+      .links-grid { grid-template-columns: 1fr; gap: 8px; }
+      .link-card  { padding: 11px; }
+      .url-text   { font-size: 9px; }
+
+      .note-box { font-size: 10.5px; }
+    }
+
+    .deck-card .dc-icon  { font-size: 24px; display: block; margin-bottom: 3px; }
+    .deck-card .dc-name  { font-size: 9px; color: var(--muted); line-height: 1.25; }
+    .deck-card .dc-rarity { display:block; width:6px; height:6px; border-radius:50%; margin:4px auto 0; }
+    .Common    { background: var(--muted); }
+    .Rare      { background: var(--blue); }
+    .Epic      { background: var(--purple); }
+    .Legendary { background: var(--yellow); }
+    .Champion  { background: var(--gold); }
+    .Hero      { background: var(--cyan); }
+
+    .deck-stats { display:flex; gap:14px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
+    .deck-stats strong { color: var(--text); }
+
+    .note-box {
+      background: #39d3f310; border: 1px solid #39d3f333; border-radius: 8px;
+      padding: 10px 14px; font-size: 11.5px; color: var(--cyan);
+      margin-bottom: 16px; display: none;
+    }
+    .note-box.visible { display: block; }
+
+    .links-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 600px) { .links-grid { grid-template-columns: 1fr; } }
+
+    .link-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:14px; }
+    .link-card h4 { font-size:12px; font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+    .badge { font-size:9px; padding:2px 6px; border-radius:8px; font-weight:700; letter-spacing:.3px; }
+    .b-sc { background:#f0883e22; color:var(--orange); }
+    .b-ra { background:#388bfd22; color:var(--blue); }
+    .b-ds { background:#3fb95022; color:var(--green); }
+
+    .url-row { display:flex; gap:6px; align-items:center; }
+    .url-text {
+      flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px;
+      padding:6px 8px; font-size:10px; font-family:'Consolas',monospace;
+      color:var(--muted); overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+    }
+    .icon-btn {
+      padding:5px 9px; background:transparent; border:1px solid var(--border);
+      border-radius:6px; color:var(--muted); font-size:13px; cursor:pointer;
+      transition:all .15s; flex-shrink:0;
+    }
+    .icon-btn:hover { border-color:var(--green); color:var(--green); }
+    .icon-btn.copied { border-color:var(--green); color:var(--green); }
+
+    a.open-btn {
+      display:inline-flex; align-items:center; gap:4px;
+      margin-top:6px; font-size:11px; color:var(--blue); text-decoration:none;
+    }
+    a.open-btn:hover { color:#79b8ff; }
+
+    .qr-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; text-align:center; }
+    .qr-card h4 { font-size:12px; font-weight:600; margin-bottom:10px; }
+    .qr-card p  { font-size:11px; color:var(--muted); margin-top:8px; }
+
+    /* ── HEROISM TOGGLE ── */
+    .heroism-toggle-bar {
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      padding: 8px 24px; display: flex; align-items: center; gap: 10px;
+      font-size: 12px; color: var(--muted);
+    }
+    .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--bg3); border-radius: 20px; border: 1px solid var(--border);
+      transition: .2s;
+    }
+    .toggle-slider::before {
+      content: ""; position: absolute; height: 14px; width: 14px;
+      left: 2px; bottom: 2px; background: var(--muted);
+      border-radius: 50%; transition: .2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: #39d3f330; border-color: var(--cyan); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--cyan); }
+    .heroism-toggle-bar .toggle-label { color: var(--text); font-weight: 600; }
+    .heroism-toggle-bar .toggle-label.on { color: var(--cyan); }
+
+    /* ── LIKE BUTTON ── */
+    .like-btn {
+      background: transparent; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--muted); font-size: 18px; cursor: pointer;
+      padding: 7px 12px; transition: all .15s; line-height: 1;
+    }
+    .like-btn:hover { border-color: #f85149; color: #f85149; }
+    .like-btn.liked { border-color: #f85149; color: #f85149; background: #f8514915; }
+    .like-btn.liked::after { content: " Лайкнуто"; font-size: 11px; vertical-align: middle; }
+
+    /* ── SAVED DECKS ── */
+    #saved-section { margin-top: 36px; }
+    .saved-list { display: flex; flex-direction: column; gap: 10px; }
+    .saved-deck-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .saved-deck-card:hover { border-color: var(--orange); }
+    .saved-deck-info { flex: 1; min-width: 0; }
+    .saved-deck-info .sd-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .saved-deck-info .sd-meta  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .saved-deck-cards { display: flex; gap: 4px; flex-wrap: wrap; }
+    .sd-chip {
+      font-size: 9px; padding: 2px 6px; border-radius: 4px;
+      background: var(--bg3); border: 1px solid var(--border); color: var(--muted);
+    }
+    .sd-chip.is-evo  { border-color: var(--orange); color: var(--orange); }
+    .sd-chip.is-hero { border-color: var(--cyan);   color: var(--cyan); }
+    .sd-chip.is-wild { border-color: var(--purple); color: var(--purple); }
+    .saved-deck-actions { display: flex; gap: 6px; }
+    .sd-btn {
+      font-size: 11px; padding: 5px 10px; border-radius: 6px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer; transition: all .12s;
+    }
+    .sd-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .sd-btn.sd-del:hover { border-color: var(--red); color: var(--red); }
+    @media (max-width: 480px) {
+      .heroism-toggle-bar { padding: 6px 14px; font-size: 11px; }
+      .saved-deck-cards { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">⚔️</div>
+    <div>
+      <h1>CR Random Deck</h1>
+      <p>Генератор случайных колод · Supercell deeplink + RoyaleAPI + Deck Shop · июнь 2026</p>
+    </div>
+  </div>
+  <div id="status-badge"><div class="spinner"></div> Загрузка карт...</div>
+</header>
+
+<div class="legend-bar">
+  <div class="litem"><span class="lbadge lb-evo">EVO</span> Слот 1 — Эволюция (пассивный буфф)</div>
+  <div class="litem"><span class="lbadge lb-hero">HERO</span> Слот 2 — Герой (активная способность)</div>
+  <div class="litem"><span class="lbadge lb-wild">WILD</span> Слот 3 — Дикий (Evo или Hero на выбор)</div>
+  <div class="litem" style="margin-left:auto;color:var(--muted);font-size:10px">13 Heroes · 40 Evo · данные: royaleapi.github.io</div>
+</div>
+
+<div class="heroism-toggle-bar">
+  <label class="toggle-switch">
+    <input type="checkbox" id="heroism-mode-toggle">
+    <span class="toggle-slider"></span>
+  </label>
+  <span class="toggle-label" id="heroism-toggle-label">Режим Героизм (Supercell-формат)</span>
+  <span style="color:var(--muted);font-size:10px;margin-left:6px">— каждый дек получает Evo в слот 1 + Hero в слот 2 + Wild в слот 3</span>
+</div>
+
+<div class="wrap">
+  <p class="section-title">Выбери режим рандомизации</p>
+
+  <div class="modes-grid" id="modes-grid">
+
+    <button class="mode-btn" data-mode="full">
+      <span class="mode-icon">🎲</span>
+      <span class="mode-name">Полный рандом</span>
+      <span class="mode-desc">8 абсолютно случайных карт из всего пула</span>
+    </button>
+
+    <button class="mode-btn" data-mode="buildings">
+      <span class="mode-icon">🏰</span>
+      <span class="mode-name">8 Зданий</span>
+      <span class="mode-desc">Только Buildings — башни, ловушки, генераторы</span>
+    </button>
+
+    <button class="mode-btn" data-mode="spells">
+      <span class="mode-icon">✨</span>
+      <span class="mode-name">8 Заклинаний</span>
+      <span class="mode-desc">Только Spells — урон, дебаффы, поддержка</span>
+    </button>
+
+    <button class="mode-btn" data-mode="troops">
+      <span class="mode-icon">⚔️</span>
+      <span class="mode-name">8 Войск</span>
+      <span class="mode-desc">Только Troops — пехота, летуны, танки</span>
+    </button>
+
+    <button class="mode-btn" data-mode="heroes">
+      <span class="mode-icon">🦸</span>
+      <span class="mode-name">Два Героя</span>
+      <span class="mode-desc">Hero в слот 2 + Hero в WILD слот 3 + Evo слот 1</span>
+    </button>
+
+    <button class="mode-btn" data-mode="heroism">
+      <span class="mode-icon">⚡🦸</span>
+      <span class="mode-name">Героизм</span>
+      <span class="mode-desc">Слот 1 Evo + Слот 2 Hero + Слот 3 Wild (Evo/Hero) · март 2026</span>
+    </button>
+
+    <button class="mode-btn" data-mode="evo">
+      <span class="mode-icon">🧬</span>
+      <span class="mode-name">Эво-колода</span>
+      <span class="mode-desc">1 Evo в слоте 1 + 7 рандом (38+ evo карт, июнь 2026)</span>
+    </button>
+
+    <button class="mode-btn" data-mode="mixed">
+      <span class="mode-icon">🎭</span>
+      <span class="mode-name">Полный фарш</span>
+      <span class="mode-desc">Слот 1 Evo + Слот 2 Hero + Слот 3 Wild Evo + 5 рандом</span>
+    </button>
+
+    <button class="mode-btn" data-mode="newcards">
+      <span class="mode-icon">🆕</span>
+      <span class="mode-name">Новые 2025–26</span>
+      <span class="mode-desc">Берсерк, Дух Императрицы, Лозы, Rune Giant + Heroes</span>
+    </button>
+
+    <button class="mode-btn" data-mode="cheap">
+      <span class="mode-icon">💧</span>
+      <span class="mode-name">Бюджетный</span>
+      <span class="mode-desc">Только карты ≤ 3 элексира включительно</span>
+    </button>
+
+    <button class="mode-btn" data-mode="expensive">
+      <span class="mode-icon">💎</span>
+      <span class="mode-name">Дорогой</span>
+      <span class="mode-desc">Только карты ≥ 5 элексира — хардкор пуш</span>
+    </button>
+
+    <button class="mode-btn" data-mode="lowelixir">
+      <span class="mode-icon">🧪</span>
+      <span class="mode-name">Анти-элексир</span>
+      <span class="mode-desc">Средний элексир &lt; 3.0 — экстремальный цикл</span>
+    </button>
+
+    <button class="mode-btn" data-mode="cycle">
+      <span class="mode-icon">🔄</span>
+      <span class="mode-name">Цикловая</span>
+      <span class="mode-desc">avg ≤ 3.5 — классические цикл-деки</span>
+    </button>
+
+    <button class="mode-btn" data-mode="beatdown">
+      <span class="mode-icon">🐉</span>
+      <span class="mode-name">Beatdown</span>
+      <span class="mode-desc">2+ тяжёлых войска ≥ 6 эл + поддержка и заклинания</span>
+    </button>
+
+    <button class="mode-btn" data-mode="siege">
+      <span class="mode-icon">🏹</span>
+      <span class="mode-name">Осада</span>
+      <span class="mode-desc">X-Bow / Mortar + защитные карты</span>
+    </button>
+
+    <button class="mode-btn" data-mode="control">
+      <span class="mode-icon">🛡️</span>
+      <span class="mode-name">Контроль</span>
+      <span class="mode-desc">3+ заклинания + защитные здания и войска</span>
+    </button>
+
+    <button class="mode-btn" data-mode="bridge">
+      <span class="mode-icon">⚡</span>
+      <span class="mode-name">Bridge Spam</span>
+      <span class="mode-desc">Агрессивные войска 3–5 эл, быстрый пуш</span>
+    </button>
+
+    <button class="mode-btn" data-mode="bait">
+      <span class="mode-icon">🪤</span>
+      <span class="mode-name">Bait</span>
+      <span class="mode-desc">Рой мелких отрядов + дешёвые заклинания-приманки</span>
+    </button>
+
+    <button class="mode-btn" data-mode="legendary">
+      <span class="mode-icon">⭐</span>
+      <span class="mode-name">Все Легендарки</span>
+      <span class="mode-desc">Максимум Legendary карт в одной колоде</span>
+    </button>
+
+    <button class="mode-btn" data-mode="commons">
+      <span class="mode-icon">🥉</span>
+      <span class="mode-name">Только Common</span>
+      <span class="mode-desc">8 обычных карт — честный нищеброд-дек</span>
+    </button>
+
+    <button class="mode-btn" data-mode="funnylore">
+      <span class="mode-icon">🃏</span>
+      <span class="mode-name">Мемная</span>
+      <span class="mode-desc">Намеренно нелогичная колода — для смеха</span>
+    </button>
+
+  </div>
+
+  <!-- RESULT -->
+  <div id="result-area">
+    <div class="result-header">
+      <h2 id="result-title">🎲 Полный рандом</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="like-btn" id="like-btn" title="Сохранить колоду">🤍</button>
+        <button class="reroll-btn" id="reroll-btn">🎲 Реролл</button>
+      </div>
+    </div>
+
+    <div class="deck-display">
+      <div class="slot-labels" id="slot-labels"></div>
+      <div class="deck-cards"  id="deck-cards"></div>
+      <div class="deck-stats"  id="deck-stats"></div>
+    </div>
+
+    <div class="note-box" id="note-box"></div>
+
+    <div class="links-grid">
+      <div class="link-card">
+        <h4>Supercell Deeplink <span class="badge b-sc">В ИГРУ</span></h4>
+        <div class="url-row">
+          <div class="url-text" id="url-sc"></div>
+          <button class="icon-btn" id="copy-sc">📋</button>
+        </div>
+        <a id="open-sc" href="#" target="_blank" rel="noopener" class="open-btn">↗ Открыть</a>
+      </div>
+      <div class="link-card">
+        <h4>RoyaleAPI <span class="badge b-ra">СТАТИСТИКА</span></h4>
+        <div class="url-row">
+          <div class="url-text" id="url-ra"></div>
+          <button class="icon-btn" id="copy-ra">📋</button>
+        </div>
+        <a id="open-ra" href="#" target="_blank" rel="noopener" class="open-btn">↗ Открыть</a>
+      </div>
+      <div class="link-card">
+        <h4>Deck Shop <span class="badge b-ds">АНАЛИЗ</span></h4>
+        <div class="url-row">
+          <div class="url-text" id="url-ds"></div>
+          <button class="icon-btn" id="copy-ds">📋</button>
+        </div>
+        <a id="open-ds" href="#" target="_blank" rel="noopener" class="open-btn">↗ Открыть</a>
+      </div>
+      <div class="qr-card">
+        <h4>📱 QR-код для игры</h4>
+        <div id="qr-container"></div>
+        <p>Сканируй в Clash Royale → Настройки</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVED DECKS -->
+  <div id="saved-section" style="display:none">
+    <p class="section-title" style="margin-top:32px">Сохранённые колоды</p>
+    <div class="saved-list" id="saved-list"></div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════
+
+const CARDS_URL   = "https://royaleapi.github.io/cr-api-data/json/cards.json";
+const LINK_BASE   = "https://link.clashroyale.com/en/?clashroyale://copyDeck";
+const ROYALE_BASE = "https://royaleapi.com/decks/stats/";
+const DS_BASE     = "https://www.deckshop.pro/check/?deck=";
+const TT_DEFAULT  = 159000000;
+
+const DS_MAP = {
+  "the-log":"Log","skeletons":"Skellies","x-bow":"XBow","electro-wizard":"eWiz",
+  "mega-knight":"MegaKnight","barbarian-barrel":"BarbBarrel","barbarian-hut":"BarbHut",
+  "inferno-dragon":"InfernoD","electro-dragon":"eDragon","elite-barbarians":"eBarbs",
+  "heal-spirit":"HealSpirit","royal-hogs":"RoyalHogs","ice-spirit":"IceSpirit",
+  "fire-spirit":"FireSpirit","giant-snowball":"GiantSnowball","goblin-barrel":"GoblinBarrel",
+  "goblin-giant":"GoblinGiant","goblin-drill":"GoblinDrill","goblin-cage":"GoblinCage",
+  "royal-giant":"RoyalGiant","goblin-hut":"GoblinHut","bomb-tower":"BombTower",
+  "inferno-tower":"InfernoTower","elixir-collector":"ElixirPump","dark-prince":"DarkPrince",
+  "battle-ram":"BattleRam","wall-breakers":"WallBreachers","balloon":"Balloon",
+  "hog-rider":"HogRider","mini-pekka":"MiniPEKKA","baby-dragon":"BabyDragon",
+  "lava-hound":"LavaHound","flying-machine":"FlyingMachine","skeleton-barrel":"SkelBarrel",
+  "rascals":"Rascals","zappies":"Zappies","night-witch":"NightWitch","graveyard":"Graveyard",
+  "fisherman":"Fisherman","magic-archer":"MagicArcher","skeleton-king":"SkelKing",
+  "mighty-miner":"MightyMiner","archer-queen":"ArcherQueen","golden-knight":"GoldenKnight",
+  "monk":"Monk","musketeer":"Musketeer","witch":"Witch","wizard":"Wizard",
+  "executioner":"Executioner","hunter":"Hunter","lumberjack":"Lumberjack",
+  "dart-goblin":"DartGoblin","three-musketeers":"3Musketeers","ice-wizard":"IceWiz",
+  "sparky":"Sparky","ram-rider":"RamRider","phoenix":"Phoenix","pekka":"PEKKA",
+  "valkyrie":"Valkyrie","bowler":"Bowler","miner":"Miner","prince":"Prince",
+  "tesla":"Tesla","cannon":"Cannon","mortar":"Mortar","furnace":"Furnace",
+  "little-prince":"LittlePrince","goblinstein":"Goblinstein","boss-bandit":"BossBandit",
+  "berserker":"Berserker","rune-giant":"RuneGiant","spirit-empress":"SpiritEmpress","vines":"Vines",
+  "hero-knight":"HeroKnight","hero-giant":"HeroGiant","hero-mini-pekka":"HeroMiniPEKKA",
+  "hero-musketeer":"HeroMusketeer","hero-goblins":"HeroGoblins",
+  "hero-mega-minion":"HeroMegaMinion","hero-magic-archer":"HeroMagicArcher",
+  "hero-barbarian-barrel":"HeroBarbBarrel","hero-ice-golem":"HeroIceGolem",
+  "hero-wizard":"HeroWizard","hero-bowler":"HeroBowler","hero-dark-prince":"HeroDarkPrince",
+  "hero-tombstone":"HeroTombstone",
+};
+
+const TYPE_EMOJI = { Troop:"⚔️", Building:"🏰", Spell:"✨", Hero:"🦸" };
+
+// All cards with Evolutions confirmed June 2026 (~38 total)
+const EVO_KEYS = new Set([
+  "knight","archers","pekka","witch","barbarians","skeletons","valkyrie",
+  "skeleton-army","bomber","musketeer","baby-dragon","wizard","minion-horde",
+  "royal-giant","ice-spirit","lumberjack","battle-ram","inferno-dragon",
+  "dart-goblin","hunter","executioner","royal-recruits","bats","royal-ghost",
+  "mega-knight","skeleton-barrel","wall-breakers","royal-hogs","goblin-giant",
+  "electro-dragon","firecracker","cannon","mortar","tesla","furnace",
+  "goblin-cage","goblin-drill","goblin-barrel","zap","giant-snowball",
+]);
+
+// Attacking buildings for Siege mode
+const ATCK_BUILDINGS = new Set(["x-bow","mortar","goblin-drill"]);
+
+// New cards 2025–2026
+const NEW_CARD_KEYS = new Set([
+  "berserker","boss-bandit","spirit-empress","vines","rune-giant",
+  "hero-knight","hero-giant","hero-mini-pekka","hero-musketeer",
+  "hero-goblins","hero-mega-minion","hero-magic-archer","hero-barbarian-barrel",
+  "hero-ice-golem","hero-wizard","hero-bowler","hero-dark-prince","hero-tombstone",
+]);
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+
+let allCards    = [];
+let troops      = [];
+let buildings   = [];
+let spells      = [];
+let heroes      = [];
+let legendaries = [];
+let commons     = [];
+let evoCards    = [];
+let newCards    = [];
+
+let currentMode = null;
+let currentDeck = null;
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+
+async function init() {
+  try {
+    const res = await fetch(CARDS_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    processCards(await res.json());
+    setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo · ${heroes.length} Heroes`);
+  } catch(e) {
+    setStatus("error", "⚠️ Офлайн — встроенный пул");
+    processCards(getFallback());
+  }
+}
+
+function processCards(raw) {
+  allCards = raw
+    // Exclude Tower Troops and Champion-rarity cards (can't be played in normal decks)
+    .filter(c => c.type !== "Tower Troop"
+      && !c.key.startsWith("super-")
+      && !["party-hut","party-rocket","santa-hog-rider"].includes(c.key)
+    )
+    .map(c => ({
+      key:    c.key,
+      name:   c.name,
+      id:     c.id,
+      elixir: c.elixir ?? 0,
+      type:   c.type,
+      rarity: c.rarity,
+      canEvo: !!c.evolved_spells_sc_key || EVO_KEYS.has(c.key),
+      isNew:  NEW_CARD_KEYS.has(c.key),
+    }));
+
+  // Heroes are separate from the regular pool — stored only in `heroes` array
+  const existingKeys = new Set(allCards.map(c => c.key));
+  const heroPool = [...allCards.filter(c => c.type === "Hero")];
+  HERO_FALLBACK.forEach(h => { if (!existingKeys.has(h.key)) heroPool.push(h); });
+
+  // allCards = only regular playable cards (Troop/Building/Spell, no Champions, no Heroes)
+  allCards = allCards.filter(c => c.type !== "Hero");
+
+  troops      = allCards.filter(c => c.type === "Troop");
+  buildings   = allCards.filter(c => c.type === "Building");
+  spells      = allCards.filter(c => c.type === "Spell");
+  heroes      = heroPool;
+  legendaries = allCards.filter(c => c.rarity === "Legendary");
+  commons     = allCards.filter(c => c.rarity === "Common");
+  evoCards    = allCards.filter(c => c.canEvo);
+  newCards    = allCards.filter(c => c.isNew);
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById("status-badge");
+  el.className = type; el.innerHTML = msg;
+}
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function pick(pool, n) { return shuffle(pool).slice(0, Math.min(n, pool.length)); }
+function entry(card, tag = null) { return { card, tag }; }
+function fillTo8(deck, pool) {
+  const used = new Set(deck.map(d => d.card.key));
+  const extra = shuffle(pool.filter(c => !used.has(c.key)));
+  let i = 0;
+  while (deck.length < 8 && i < extra.length) deck.push(entry(extra[i++]));
+  return deck;
+}
+function avgElixir(deck) {
+  return (deck.reduce((s,d)=>s+d.card.elixir,0)/deck.length).toFixed(1);
+}
+
+// ══════════════════════════════════════════════
+//  SLOT LABELS — March 2026 rules:
+//   slot 0 = EVO, slot 1 = HERO, slot 2 = WILD (Evo or Hero), slots 3-7 = regular
+// ══════════════════════════════════════════════
+
+function getSlotLabel(i, deck) {
+  const d = deck[i];
+  if (!d) return { text: `#${i+1}`, cls: "" };
+  if (d.tag === "evo"  && i === 0) return { text: "EVO",  cls: "evo-slot" };
+  if (d.tag === "hero" && i === 1) return { text: "HERO", cls: "hero-slot" };
+  if (d.tag === "wild")            return { text: "WILD", cls: "wild-slot" };
+  if (d.tag === "evo")             return { text: "EVO",  cls: "evo-slot" };
+  if (d.tag === "hero")            return { text: "HERO", cls: "hero-slot" };
+  return { text: `#${i+1}`, cls: "" };
+}
+
+// ══════════════════════════════════════════════
+//  MODES
+// ══════════════════════════════════════════════
+
+const MODES = {
+
+  full: {
+    title: "🎲 Полный рандом", note: null,
+    generate() { return pick(allCards, 8).map(c => entry(c)); }
+  },
+
+  buildings: {
+    title: "🏰 8 Зданий", note: null,
+    generate() {
+      const pool = buildings.length >= 8 ? buildings : [...buildings,...troops];
+      return pick(pool, 8).map(c => entry(c));
+    }
+  },
+
+  spells: {
+    title: "✨ 8 Заклинаний", note: null,
+    generate() {
+      const pool = spells.length >= 8 ? spells : [...spells,...troops];
+      return pick(pool, 8).map(c => entry(c));
+    }
+  },
+
+  troops: {
+    title: "⚔️ 8 Войск", note: null,
+    generate() { return pick(troops, 8).map(c => entry(c)); }
+  },
+
+  heroes: {
+    title: "🦸 Два Героя (слоты 2–3)",
+    note: "Слот 1 = Evo, Слот 2 = Hero, Слот 3 = Wild (второй Hero). 13 Heroes: Knight, Giant, Mini PEKKA, Musketeer, Goblins, Mega Minion, Magic Archer, Barb Barrel, Ice Golem, Wizard, Bowler, Dark Prince, Tombstone.",
+    generate() {
+      const h2 = pick(heroes, 2);
+      const used = new Set(h2.map(c=>c.key));
+      const evoPick = pick(evoCards.filter(c=>!used.has(c.key)), 1);
+      evoPick.forEach(c=>used.add(c.key));
+      let deck = [
+        ...evoPick.map(c => entry(c, "evo")),
+        entry(h2[0], "hero"),
+        entry(h2[1], "wild"),
+      ];
+      return fillTo8(deck, allCards.filter(c=>!used.has(c.key)));
+    }
+  },
+
+  heroism: {
+    title: "⚡🦸 Героизм (Evo + Hero + Wild)",
+    note: "Актуальная механика марта 2026: Слот 1 = EVO (пассивный буфф), Слот 2 = HERO (активная способность), Слот 3 = WILD — ещё один Evo или ещё один Hero на выбор.",
+    generate() {
+      const evoPick = pick(evoCards, 1);
+      const used = new Set(evoPick.map(c=>c.key));
+      const heroPick = pick(heroes.filter(c=>!used.has(c.key)), 1);
+      heroPick.forEach(c=>used.add(c.key));
+      // Wild slot: random — second hero or second evo
+      const wildIsHero = Math.random() > 0.5;
+      let wildCard = null;
+      if (wildIsHero) {
+        const opt = heroes.filter(c=>!used.has(c.key));
+        if (opt.length) { wildCard = entry(pick(opt,1)[0], "wild"); used.add(wildCard.card.key); }
+      }
+      if (!wildCard) {
+        const opt = evoCards.filter(c=>!used.has(c.key));
+        if (opt.length) { wildCard = entry(pick(opt,1)[0], "wild"); used.add(wildCard.card.key); }
+      }
+      let deck = [
+        ...evoPick.map(c => entry(c,"evo")),
+        ...heroPick.map(c => entry(c,"hero")),
+        ...(wildCard ? [wildCard] : []),
+      ];
+      return fillTo8(deck, allCards.filter(c=>!used.has(c.key)));
+    }
+  },
+
+  evo: {
+    title: "🧬 Эво-колода",
+    note: "Evo в слоте 1. Пассивный буфф при каждом повторном розыгрыше. 38+ evo-карт на июнь 2026.",
+    generate() {
+      const evoPick = pick(evoCards, 1);
+      const used = new Set(evoPick.map(c=>c.key));
+      let deck = evoPick.map(c => entry(c, "evo"));
+      return fillTo8(deck, allCards.filter(c=>!used.has(c.key)));
+    }
+  },
+
+  mixed: {
+    title: "🎭 Полный фарш (Evo + Hero + Wild)",
+    note: "Слот 1 = Evo, Слот 2 = Hero, Слот 3 = Wild (второй Evo). Все три спецмеханики в одной колоде.",
+    generate() {
+      const evo1 = pick(evoCards, 1);
+      const used = new Set(evo1.map(c=>c.key));
+      const hero1 = pick(heroes.filter(c=>!used.has(c.key)), 1);
+      hero1.forEach(c=>used.add(c.key));
+      const evo2 = pick(evoCards.filter(c=>!used.has(c.key)), 1);
+      evo2.forEach(c=>used.add(c.key));
+      let deck = [
+        ...evo1.map(c => entry(c,"evo")),
+        ...hero1.map(c => entry(c,"hero")),
+        ...evo2.map(c => entry(c,"wild")),
+      ];
+      return fillTo8(deck, allCards.filter(c=>!used.has(c.key)));
+    }
+  },
+
+  newcards: {
+    title: "🆕 Новые карты 2025–2026",
+    note: "Берсерк (фев 2025), Rune Giant (янв 2025), Дух Императрицы (июл 2025), Лозы (сен 2025) + все 13 Heroes (сез. 78–84).",
+    generate() {
+      const pool = newCards.length >= 4 ? newCards : [...newCards,...legendaries];
+      const anchors = pick(pool, Math.min(5, pool.length));
+      const used = new Set(anchors.map(c=>c.key));
+      let deck = anchors.map(c => c.type === "Hero" ? entry(c,"hero") : entry(c));
+      return fillTo8(deck, allCards.filter(c=>!used.has(c.key)));
+    }
+  },
+
+  cheap: {
+    title: "💧 Бюджетный (≤ 3 элексира)", note: null,
+    generate() { return pick(allCards.filter(c=>c.elixir<=3), 8).map(c=>entry(c)); }
+  },
+
+  expensive: {
+    title: "💎 Дорогой (≥ 5 элексира)", note: null,
+    generate() { return pick(allCards.filter(c=>c.elixir>=5), 8).map(c=>entry(c)); }
+  },
+
+  lowelixir: {
+    title: "🧪 Анти-элексир (avg < 3.0)", note: null,
+    generate() {
+      for (let t=0; t<150; t++) {
+        const cands = pick(allCards, 8);
+        if (cands.reduce((s,c)=>s+c.elixir,0)/8 < 3.0) return cands.map(c=>entry(c));
+      }
+      return pick([...allCards].sort((a,b)=>a.elixir-b.elixir).slice(0,14), 8).map(c=>entry(c));
+    }
+  },
+
+  cycle: {
+    title: "🔄 Цикловая (avg ≤ 3.5)", note: null,
+    generate() {
+      for (let t=0; t<100; t++) {
+        const cands = pick(allCards, 8);
+        if (cands.reduce((s,c)=>s+c.elixir,0)/8 <= 3.5) return cands.map(c=>entry(c));
+      }
+      return pick([...allCards].sort((a,b)=>a.elixir-b.elixir).slice(0,20), 8).map(c=>entry(c));
+    }
+  },
+
+  beatdown: {
+    title: "🐉 Beatdown", note: null,
+    generate() {
+      const heavy = troops.filter(c=>c.elixir>=6);
+      const mid   = allCards.filter(c=>c.elixir>=3&&c.elixir<=5);
+      const small = spells.filter(c=>c.elixir<=4);
+      const h2    = pick(heavy, 2);
+      const used  = new Set(h2.map(c=>c.key));
+      const m4    = pick(mid.filter(c=>!used.has(c.key)), 4);
+      m4.forEach(c=>used.add(c.key));
+      const s2    = pick(small.filter(c=>!used.has(c.key)), 2);
+      return fillTo8([...h2,...m4,...s2].map(c=>entry(c)), allCards);
+    }
+  },
+
+  siege: {
+    title: "🏹 Осада", note: null,
+    generate() {
+      const atk  = buildings.filter(c=>ATCK_BUILDINGS.has(c.key));
+      const def  = allCards.filter(c=>c.elixir<=4&&!ATCK_BUILDINGS.has(c.key));
+      const logS = spells.filter(c=>c.elixir<=3);
+      const a2   = pick(atk, 2);
+      const used = new Set(a2.map(c=>c.key));
+      const d4   = pick(def.filter(c=>!used.has(c.key)), 4);
+      d4.forEach(c=>used.add(c.key));
+      const l2   = pick(logS.filter(c=>!used.has(c.key)), 2);
+      return fillTo8([...a2,...d4,...l2].map(c=>entry(c)), allCards);
+    }
+  },
+
+  control: {
+    title: "🛡️ Контроль", note: null,
+    generate() {
+      const sp  = pick(spells, 3);
+      const used= new Set(sp.map(c=>c.key));
+      const dt  = shuffle([...troops,...buildings].filter(c=>c.elixir<=5&&!used.has(c.key))).slice(0,5);
+      return fillTo8([...sp,...dt].map(c=>entry(c)), allCards);
+    }
+  },
+
+  bridge: {
+    title: "⚡ Bridge Spam", note: null,
+    generate() {
+      const pool = troops.filter(c=>c.elixir>=3&&c.elixir<=5);
+      const a5   = pick(pool, 5);
+      const used = new Set(a5.map(c=>c.key));
+      const r3   = pick(spells.filter(c=>c.elixir<=4&&!used.has(c.key)), 3);
+      return fillTo8([...a5,...r3].map(c=>entry(c)), allCards);
+    }
+  },
+
+  bait: {
+    title: "🪤 Bait", note: null,
+    generate() {
+      const sw  = troops.filter(c=>c.elixir<=3);
+      const log = spells.filter(c=>c.elixir<=3);
+      const s5  = pick(sw, 5);
+      const used= new Set(s5.map(c=>c.key));
+      const l3  = pick(log.filter(c=>!used.has(c.key)), 3);
+      return fillTo8([...s5,...l3].map(c=>entry(c)), allCards);
+    }
+  },
+
+  legendary: {
+    title: "⭐ Все Легендарки", note: null,
+    generate() { return fillTo8(pick(legendaries,8).map(c=>entry(c)), allCards); }
+  },
+
+  commons: {
+    title: "🥉 Только Common", note: null,
+    generate() {
+      const pool = commons.length>=8 ? commons : [...commons,...allCards.filter(c=>c.rarity==="Rare")];
+      return pick(pool, 8).map(c=>entry(c));
+    }
+  },
+
+  funnylore: {
+    title: "🃏 Мемная", note: "Намеренно хаотичная колода — дорогое + дешёвое + здание + заклинание + герой.",
+    generate() {
+      const big   = pick(allCards.filter(c=>c.elixir>=6), 2);
+      const tiny  = pick(allCards.filter(c=>c.elixir<=2), 2);
+      const heroR = pick(heroes, 1);
+      const bldg  = pick(buildings, 1);
+      const spell = pick(spells, 2);
+      const combined = [...big,...tiny,...heroR,...bldg,...spell];
+      const uniq = [...new Map(combined.map(c=>[c.key,c])).values()];
+      let deck = uniq.slice(0,8).map((c,i) =>
+        c.type==="Hero" ? entry(c,"hero") : entry(c)
+      );
+      return fillTo8(deck, allCards);
+    }
+  },
+};
+
+// ══════════════════════════════════════════════
+//  LINK BUILDERS
+// ══════════════════════════════════════════════
+
+function dsSlug(key) {
+  return DS_MAP[key] || key.split("-").map(w=>w[0].toUpperCase()+w.slice(1)).join("");
+}
+
+function buildLinks(deck, modeName) {
+  const ids   = deck.map(d => d.card.id);
+  // slots=1 only for evo/wild-evo cards; hero cards are normal in slots param
+  const slots = deck.map(d => (d.tag === "evo" || d.tag === "wild") ? "1" : "0");
+  const slugs = deck.map(d => d.card.key);
+  const params = new URLSearchParams({
+    deck:  ids.join(";"),
+    slots: slots.join(";"),
+    tt:    String(TT_DEFAULT),
+    l:     modeName || "CRRandom",
+  });
+  return {
+    supercell: `${LINK_BASE}?${params.toString().replace(/%3B/g,";")}`,
+    royaleapi: ROYALE_BASE + slugs.join(","),
+    deckshop:  DS_BASE + slugs.map(dsSlug).join("-"),
+  };
+}
+
+// ══════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════
+
+// By default all cards are "normal" (tag=null, slots=0 in the link).
+// The user can click EVO/HERO/WILD toggles below each card to override.
+// After each toggle click the links + QR auto-update.
+
+function renderDeck(deck) {
+  // Clear all tags to null — default is normal (no evo, no hero)
+  deck.forEach(d => { if (!d._userTag) d.tag = null; });
+
+  _renderDeckDOM(deck);
+}
+
+function _renderDeckDOM(deck) {
+  document.getElementById("slot-labels").innerHTML = deck.map((_,i) => {
+    const {text,cls} = getSlotLabel(i, deck);
+    return `<div class="slot-label ${cls}">${text}</div>`;
+  }).join("");
+
+  const container = document.getElementById("deck-cards");
+  container.innerHTML = deck.map((d,i) => {
+    const {card,tag} = d;
+    const cls = tag==="evo"?"is-evo": tag==="hero"?"is-hero": tag==="wild"?"is-wild": "";
+    const badge = tag==="evo"  ? `<span class="dc-tag tag-evo">EVO</span>`
+                : tag==="hero" ? `<span class="dc-tag tag-hero">HERO</span>`
+                : tag==="wild" ? `<span class="dc-tag tag-wild">WILD</span>`
+                : "";
+    const emoji = TYPE_EMOJI[card.type] || "🃏";
+
+    // Show Evo toggle only if card can evo, Hero toggle only if card type=Hero
+    const canEvo  = card.canEvo && card.type !== "Hero";
+    const isHero  = card.type === "Hero";
+
+    const evoBtn  = canEvo ? `<button class="dc-toggle t-evo ${tag==='evo'?'on':''}" data-idx="${i}" data-ttag="evo">EVO</button>` : "";
+    const heroBtn = isHero ? `<button class="dc-toggle t-hero ${tag==='hero'?'on':''}" data-idx="${i}" data-ttag="hero">HERO</button>` : "";
+    const wildBtn = (canEvo || isHero) ? `<button class="dc-toggle t-wild ${tag==='wild'?'on':''}" data-idx="${i}" data-ttag="wild">WILD</button>` : "";
+
+    return `<div class="deck-card ${cls}" style="animation-delay:${i*35}ms">
+      <span class="dc-elixir">${card.elixir}💧</span>
+      ${badge}
+      <span class="dc-icon">${emoji}</span>
+      <span class="dc-name">${card.name}</span>
+      <span class="dc-rarity ${card.rarity}"></span>
+      ${(evoBtn||heroBtn||wildBtn) ? `<div class="dc-toggles">${evoBtn}${heroBtn}${wildBtn}</div>` : ""}
+      <button class="dc-reroll" data-reroll="${i}" title="Перекрутить эту карту">↺</button>
+    </div>`;
+  }).join("");
+
+  // Toggle listeners (EVO / HERO / WILD)
+  container.querySelectorAll(".dc-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx  = +btn.dataset.idx;
+      const ttag = btn.dataset.ttag;
+      const d    = currentDeck[idx];
+      d.tag = (d.tag === ttag) ? null : ttag;
+      d._userTag = d.tag;
+      _renderDeckDOM(currentDeck);
+      const links = buildLinks(currentDeck, currentMode);
+      renderLinks(links);
+      renderQR(links.supercell);
+    });
+  });
+
+  // Per-card reroll listeners
+  container.querySelectorAll(".dc-reroll").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = +btn.dataset.reroll;
+      const cur = currentDeck[idx];
+      const isHeroSlot = cur.card.type === "Hero";
+
+      // Pick replacement from same pool, excluding all cards already in deck
+      const used = new Set(currentDeck.map(d => d.card.key));
+      used.delete(cur.card.key); // allow replacing with itself if pool is tiny
+
+      let pool;
+      if (isHeroSlot) {
+        pool = heroes.filter(c => !used.has(c.key));
+      } else {
+        pool = allCards.filter(c => !used.has(c.key));
+      }
+
+      if (!pool.length) return; // nothing to replace with
+
+      const newCard = pool[Math.floor(Math.random() * pool.length)];
+      currentDeck[idx] = entry(newCard, null);
+
+      _renderDeckDOM(currentDeck);
+      const links = buildLinks(currentDeck, currentMode);
+      renderLinks(links);
+      renderQR(links.supercell);
+    });
+  });
+
+  // Stats
+  const tc = deck.reduce((a,d)=>{ a[d.card.type]=(a[d.card.type]||0)+1; return a; },{});
+  const evoN  = deck.filter(d=>d.tag==="evo").length;
+  const heroN = deck.filter(d=>d.tag==="hero").length;
+  const wildN = deck.filter(d=>d.tag==="wild").length;
+
+  document.getElementById("deck-stats").innerHTML = [
+    `⚡ avg <strong>${avgElixir(deck)}</strong>`,
+    tc.Troop    ? `⚔️ <strong>${tc.Troop}</strong>` : null,
+    tc.Building ? `🏰 <strong>${tc.Building}</strong>` : null,
+    tc.Spell    ? `✨ <strong>${tc.Spell}</strong>` : null,
+    tc.Hero     ? `🦸 <strong>${tc.Hero}</strong>` : null,
+    evoN  ? `🧬 evo <strong>${evoN}</strong>` : null,
+    heroN ? `⚡ hero <strong>${heroN}</strong>` : null,
+    wildN ? `🃏 wild <strong>${wildN}</strong>` : null,
+  ].filter(Boolean).map(s=>`<span>${s}</span>`).join("");
+}
+
+function renderLinks(links) {
+  [["sc",links.supercell],["ra",links.royaleapi],["ds",links.deckshop]].forEach(([id,url])=>{
+    document.getElementById(`url-${id}`).textContent = url;
+    document.getElementById(`url-${id}`).title = url;
+    document.getElementById(`open-${id}`).href = url;
+    const btn = document.getElementById(`copy-${id}`);
+    btn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(url);
+        btn.textContent="✅"; btn.classList.add("copied");
+        setTimeout(()=>{ btn.textContent="📋"; btn.classList.remove("copied"); },1800);
+      } catch { btn.textContent="⚠️"; }
+    };
+  });
+}
+
+let qrLib = null;
+async function renderQR(url) {
+  const c = document.getElementById("qr-container");
+  c.innerHTML = "";
+  try {
+    if (!qrLib) qrLib = await new Promise((res,rej)=>{
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+      s.onload=()=>res(window.QRCode); s.onerror=rej;
+      document.head.appendChild(s);
+    });
+    const div=document.createElement("div"); c.appendChild(div);
+    new qrLib(div,{text:url,width:160,height:160,colorDark:"#0d1117",colorLight:"#ffffff",correctLevel:qrLib.CorrectLevel.M});
+  } catch { c.innerHTML=`<p style="color:var(--muted);font-size:11px">QR недоступен</p>`; }
+}
+
+// ══════════════════════════════════════════════
+//  RUN
+// ══════════════════════════════════════════════
+
+function run(modeKey) {
+  if (!allCards.length) return;
+  currentMode = modeKey;
+  const mo = MODES[modeKey];
+  // Generate fresh deck — all tags start as null (normal cards, slots=0 in link)
+  currentDeck = mo.generate().slice(0, 8);
+  if (currentDeck.length < 8) fillTo8(currentDeck, allCards);
+  // Strip any leftover user overrides
+  currentDeck.forEach(d => { d.tag = null; d._userTag = null; });
+
+  // Apply Supercell heroism format if toggle is on
+  if (heroismToggle && heroismToggle.checked) {
+    applyHeroismFormat(currentDeck);
+  }
+
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode===modeKey));
+  document.getElementById("result-title").textContent = mo.title;
+  const noteEl = document.getElementById("note-box");
+  mo.note ? (noteEl.textContent="ℹ️ "+mo.note, noteEl.classList.add("visible"))
+           : noteEl.classList.remove("visible");
+
+  renderDeck(currentDeck);
+  const links = buildLinks(currentDeck, modeKey);
+  renderLinks(links);
+  renderQR(links.supercell);
+
+  // Reset like button state
+  updateLikeBtn();
+
+  const area = document.getElementById("result-area");
+  area.classList.add("visible");
+  area.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+document.getElementById("modes-grid").addEventListener("click", e => {
+  const btn = e.target.closest(".mode-btn");
+  if (btn) run(btn.dataset.mode);
+});
+document.getElementById("reroll-btn").addEventListener("click", () => {
+  if (currentMode) run(currentMode);
+});
+
+// ══════════════════════════════════════════════
+//  HEROISM TOGGLE — apply Supercell slot rules
+//  to every generated deck when checkbox is on
+// ══════════════════════════════════════════════
+
+const heroismToggle = document.getElementById("heroism-mode-toggle");
+const heroismLabel  = document.getElementById("heroism-toggle-label");
+
+heroismToggle.addEventListener("change", () => {
+  heroismLabel.classList.toggle("on", heroismToggle.checked);
+  // re-generate current deck with new setting if one is displayed
+  if (currentMode) run(currentMode);
+});
+
+function applyHeroismFormat(deck) {
+  // Slot 0 = EVO (pick from evo-capable cards already in deck, or swap in one)
+  // Slot 1 = HERO (pick from heroes already in deck, or swap in one)
+  // Slot 2 = WILD (second hero or second evo from deck)
+  // Slots 3-7 = regular (tag = null)
+
+  // Reset all tags first
+  deck.forEach(d => { d.tag = null; d._userTag = null; });
+
+  // Collect positions by type
+  const heroIdxs = deck.map((d,i)=>d.card.type==="Hero"?i:-1).filter(i=>i>=0);
+  const evoIdxs  = deck.map((d,i)=>d.card.canEvo&&d.card.type!=="Hero"?i:-1).filter(i=>i>=0);
+
+  // --- Slot 0: EVO ---
+  let evoSlotIdx = evoIdxs[0] ?? -1;
+  if (evoSlotIdx < 0) {
+    // No evo card in deck — swap slot 0 with a random evo card not in deck
+    const used = new Set(deck.map(d=>d.card.key));
+    used.delete(deck[0].card.key);
+    const evoOpt = evoCards.filter(c=>!used.has(c.key));
+    if (evoOpt.length) {
+      deck[0] = entry(evoOpt[Math.floor(Math.random()*evoOpt.length)], "evo");
+      evoSlotIdx = 0;
+    }
+  } else if (evoSlotIdx !== 0) {
+    // Move the evo card to position 0
+    [deck[0], deck[evoSlotIdx]] = [deck[evoSlotIdx], deck[0]];
+    evoSlotIdx = 0;
+  }
+  deck[0].tag = "evo";
+
+  // --- Slot 1: HERO ---
+  let heroSlotIdx = heroIdxs[0] ?? -1;
+  if (heroIdxs.includes(0)) {
+    // The hero ended up at 0 after the swap — use second hero for slot 1
+    heroSlotIdx = heroIdxs[1] ?? -1;
+  }
+  if (heroSlotIdx < 0) {
+    // No hero in deck — swap slot 1 with a random hero
+    const used = new Set(deck.map(d=>d.card.key));
+    used.delete(deck[1].card.key);
+    const heroOpt = heroes.filter(c=>!used.has(c.key));
+    if (heroOpt.length) {
+      deck[1] = entry(heroOpt[Math.floor(Math.random()*heroOpt.length)], "hero");
+      heroSlotIdx = 1;
+    }
+  } else if (heroSlotIdx !== 1) {
+    [deck[1], deck[heroSlotIdx]] = [deck[heroSlotIdx], deck[1]];
+    heroSlotIdx = 1;
+  }
+  deck[1].tag = "hero";
+
+  // --- Slot 2: WILD (second hero or second evo) ---
+  // Recalculate after swaps
+  const heroIdxs2 = deck.map((d,i)=>i>1&&d.card.type==="Hero"?i:-1).filter(i=>i>=0);
+  const evoIdxs2  = deck.map((d,i)=>i>1&&d.card.canEvo&&d.card.type!=="Hero"?i:-1).filter(i=>i>=0);
+  const wildCand  = heroIdxs2[0] ?? evoIdxs2[0] ?? -1;
+
+  if (wildCand >= 0 && wildCand !== 2) {
+    [deck[2], deck[wildCand]] = [deck[wildCand], deck[2]];
+  }
+  if (deck[2].card.canEvo || deck[2].card.type === "Hero") {
+    deck[2].tag = "wild";
+  } else {
+    // Try to find any evo/hero in remaining slots and swap to position 2
+    const remaining = deck.slice(2).map((d,i)=>[i+2,d]).find(([,d])=>d.card.canEvo||d.card.type==="Hero");
+    if (remaining) {
+      const [ri] = remaining;
+      [deck[2], deck[ri]] = [deck[ri], deck[2]];
+      deck[2].tag = "wild";
+    }
+  }
+  return deck;
+}
+
+// ══════════════════════════════════════════════
+//  HERO FALLBACK — 13 Heroes June 2026
+//  IDs inferred (sequential after last known Troop ID)
+// ══════════════════════════════════════════════
+const HERO_FALLBACK = [
+  {key:"hero-knight",          name:"Hero Knight",         id:26000110,elixir:3,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-giant",           name:"Hero Giant",          id:26000111,elixir:5,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-mini-pekka",      name:"Hero Mini P.E.K.K.A", id:26000112,elixir:4,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-musketeer",       name:"Hero Musketeer",      id:26000113,elixir:4,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-goblins",         name:"Hero Goblins",        id:26000114,elixir:2,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-mega-minion",     name:"Hero Mega Minion",    id:26000115,elixir:3,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-magic-archer",    name:"Hero Magic Archer",   id:26000116,elixir:4,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-barbarian-barrel",name:"Hero Barb Barrel",    id:26000117,elixir:3,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-ice-golem",       name:"Hero Ice Golem",      id:26000118,elixir:2,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-wizard",          name:"Hero Wizard",         id:26000119,elixir:5,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-bowler",          name:"Hero Bowler",         id:26000120,elixir:5,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-dark-prince",     name:"Hero Dark Prince",    id:26000121,elixir:4,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+  {key:"hero-tombstone",       name:"Hero Tombstone",      id:26000122,elixir:3,type:"Hero",rarity:"Hero",canEvo:false,isNew:true},
+];
+
+// ══════════════════════════════════════════════
+//  FALLBACK CARD POOL
+// ══════════════════════════════════════════════
+function getFallback() {
+  return [
+    // Troops
+    {key:"knight",name:"Knight",id:26000000,elixir:3,type:"Troop",rarity:"Common",evolved_spells_sc_key:"Knight_EV1"},
+    {key:"archers",name:"Archers",id:26000001,elixir:3,type:"Troop",rarity:"Common",evolved_spells_sc_key:"Archers_EV1"},
+    {key:"goblins",name:"Goblins",id:26000002,elixir:2,type:"Troop",rarity:"Common"},
+    {key:"giant",name:"Giant",id:26000003,elixir:5,type:"Troop",rarity:"Rare"},
+    {key:"pekka",name:"P.E.K.K.A",id:26000004,elixir:7,type:"Troop",rarity:"Epic",evolved_spells_sc_key:"PEKKA_EV1"},
+    {key:"musketeer",name:"Musketeer",id:26000005,elixir:4,type:"Troop",rarity:"Rare",evolved_spells_sc_key:"Musketeer_EV1"},
+    {key:"hog-rider",name:"Hog Rider",id:26000021,elixir:4,type:"Troop",rarity:"Rare"},
+    {key:"mini-pekka",name:"Mini P.E.K.K.A",id:26000018,elixir:4,type:"Troop",rarity:"Rare",evolved_spells_sc_key:"MiniPEKKA_EV1"},
+    {key:"valkyrie",name:"Valkyrie",id:26000011,elixir:4,type:"Troop",rarity:"Rare",evolved_spells_sc_key:"Valkyrie_EV1"},
+    {key:"mega-knight",name:"Mega Knight",id:26000055,elixir:7,type:"Troop",rarity:"Legendary",evolved_spells_sc_key:"MegaKnight_EV1"},
+    {key:"skeletons",name:"Skeletons",id:26000010,elixir:1,type:"Troop",rarity:"Common",evolved_spells_sc_key:"Skeletons_EV1"},
+    {key:"barbarians",name:"Barbarians",id:26000007,elixir:5,type:"Troop",rarity:"Common",evolved_spells_sc_key:"Barbarians_EV1"},
+    {key:"witch",name:"Witch",id:26000012,elixir:5,type:"Troop",rarity:"Epic",evolved_spells_sc_key:"Witch_EV1"},
+    {key:"lava-hound",name:"Lava Hound",id:26000029,elixir:7,type:"Troop",rarity:"Legendary"},
+    {key:"balloon",name:"Balloon",id:26000022,elixir:5,type:"Troop",rarity:"Epic"},
+    {key:"sparky",name:"Sparky",id:26000035,elixir:6,type:"Troop",rarity:"Legendary"},
+    {key:"inferno-dragon",name:"Inferno Dragon",id:26000036,elixir:4,type:"Troop",rarity:"Legendary",evolved_spells_sc_key:"InfernoDragon_EV1"},
+    {key:"princess",name:"Princess",id:26000044,elixir:3,type:"Troop",rarity:"Legendary",evolved_spells_sc_key:"Princess_EV1"},
+    {key:"minion-horde",name:"Minion Horde",id:26000016,elixir:5,type:"Troop",rarity:"Common",evolved_spells_sc_key:"MinionHorde_EV1"},
+    {key:"berserker",name:"Berserker",id:26000102,elixir:3,type:"Troop",rarity:"Common",evolved_spells_sc_key:"Berserker_EV1"},
+    {key:"rune-giant",name:"Rune Giant",id:26000101,elixir:6,type:"Troop",rarity:"Epic",evolved_spells_sc_key:"RuneGiant_EV1"},
+    {key:"spirit-empress",name:"Spirit Empress",id:28000025,elixir:4,type:"Spell",rarity:"Legendary"},
+    // Buildings
+    {key:"cannon",name:"Cannon",id:27000000,elixir:3,type:"Building",rarity:"Common",evolved_spells_sc_key:"Cannon_EV1"},
+    {key:"inferno-tower",name:"Inferno Tower",id:27000003,elixir:5,type:"Building",rarity:"Rare"},
+    {key:"tesla",name:"Tesla",id:27000006,elixir:4,type:"Building",rarity:"Common",evolved_spells_sc_key:"Tesla_EV1"},
+    {key:"x-bow",name:"X-Bow",id:27000008,elixir:6,type:"Building",rarity:"Epic"},
+    {key:"goblin-hut",name:"Goblin Hut",id:27000001,elixir:5,type:"Building",rarity:"Rare"},
+    {key:"tombstone",name:"Tombstone",id:27000009,elixir:3,type:"Building",rarity:"Rare"},
+    {key:"mortar",name:"Mortar",id:27000002,elixir:4,type:"Building",rarity:"Common",evolved_spells_sc_key:"Mortar_EV1"},
+    {key:"elixir-collector",name:"Elixir Collector",id:27000007,elixir:6,type:"Building",rarity:"Rare"},
+    {key:"goblin-drill",name:"Goblin Drill",id:27000013,elixir:4,type:"Building",rarity:"Epic"},
+    {key:"goblin-cage",name:"Goblin Cage",id:27000012,elixir:4,type:"Building",rarity:"Rare",evolved_spells_sc_key:"GoblinCage_EV1"},
+    // Spells
+    {key:"fireball",name:"Fireball",id:28000000,elixir:4,type:"Spell",rarity:"Rare"},
+    {key:"arrows",name:"Arrows",id:28000001,elixir:3,type:"Spell",rarity:"Common"},
+    {key:"zap",name:"Zap",id:28000008,elixir:2,type:"Spell",rarity:"Common",evolved_spells_sc_key:"Zap_EV1"},
+    {key:"rocket",name:"Rocket",id:28000003,elixir:6,type:"Spell",rarity:"Rare"},
+    {key:"poison",name:"Poison",id:28000009,elixir:4,type:"Spell",rarity:"Epic"},
+    {key:"the-log",name:"The Log",id:28000011,elixir:2,type:"Spell",rarity:"Legendary"},
+    {key:"tornado",name:"Tornado",id:28000012,elixir:3,type:"Spell",rarity:"Epic"},
+    {key:"goblin-barrel",name:"Goblin Barrel",id:28000004,elixir:3,type:"Spell",rarity:"Epic",evolved_spells_sc_key:"GoblinBarrel_EV1"},
+    {key:"vines",name:"Vines",id:28000026,elixir:4,type:"Spell",rarity:"Epic"},
+    {key:"giant-snowball",name:"Giant Snowball",id:28000017,elixir:2,type:"Spell",rarity:"Common",evolved_spells_sc_key:"GiantSnowball_EV1"},
+    ...HERO_FALLBACK,
+  ];
+}
+
+// ══════════════════════════════════════════════
+//  SAVED DECKS — localStorage persistence
+// ══════════════════════════════════════════════
+
+const STORAGE_KEY = "cr_saved_decks";
+
+function getSaved() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+  catch { return []; }
+}
+function setSaved(arr) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+
+function deckFingerprint(deck) {
+  return deck.map(d => d.card.key + (d.tag ? ":" + d.tag : "")).join("|");
+}
+
+function isCurrentDeckSaved() {
+  if (!currentDeck) return false;
+  const fp = deckFingerprint(currentDeck);
+  return getSaved().some(s => s.fingerprint === fp);
+}
+
+function updateLikeBtn() {
+  const btn = document.getElementById("like-btn");
+  if (!btn) return;
+  const saved = isCurrentDeckSaved();
+  btn.textContent = saved ? "❤️" : "🤍";
+  btn.classList.toggle("liked", saved);
+  btn.title = saved ? "Убрать из сохранённых" : "Сохранить колоду";
+}
+
+function saveDeck() {
+  if (!currentDeck) return;
+  const fp = deckFingerprint(currentDeck);
+  const saved = getSaved();
+  if (saved.some(s => s.fingerprint === fp)) {
+    // Already saved — unlike (remove)
+    setSaved(saved.filter(s => s.fingerprint !== fp));
+  } else {
+    const mo = MODES[currentMode];
+    saved.unshift({
+      fingerprint: fp,
+      mode:  currentMode,
+      title: mo ? mo.title : currentMode,
+      ts:    Date.now(),
+      deck:  currentDeck.map(d => ({ key: d.card.key, name: d.card.name, id: d.card.id,
+               elixir: d.card.elixir, type: d.card.type, rarity: d.card.rarity,
+               canEvo: d.card.canEvo, tag: d.tag })),
+    });
+    // Keep max 50 saved decks
+    setSaved(saved.slice(0, 50));
+  }
+  updateLikeBtn();
+  renderSaved();
+}
+
+function renderSaved() {
+  const saved = getSaved();
+  const section = document.getElementById("saved-section");
+  const list    = document.getElementById("saved-list");
+  if (!saved.length) { section.style.display = "none"; return; }
+  section.style.display = "block";
+
+  list.innerHTML = saved.map((s, idx) => {
+    const chips = s.deck.map(d => {
+      const cls = d.tag === "evo" ? "is-evo" : d.tag === "hero" ? "is-hero" : d.tag === "wild" ? "is-wild" : "";
+      const label = d.tag ? `${d.name} [${d.tag.toUpperCase()}]` : d.name;
+      return `<span class="sd-chip ${cls}">${label}</span>`;
+    }).join("");
+    const avg = (s.deck.reduce((a,d)=>a+d.elixir,0)/s.deck.length).toFixed(1);
+    const date = new Date(s.ts).toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+    const scUrl = buildSavedLink(s.deck);
+    return `<div class="saved-deck-card" data-idx="${idx}">
+      <div class="saved-deck-info">
+        <div class="sd-title">${s.title}</div>
+        <div class="sd-meta">⚡ avg ${avg} · ${date}</div>
+        <div class="saved-deck-cards" style="margin-top:6px">${chips}</div>
+      </div>
+      <div class="saved-deck-actions">
+        <button class="sd-btn" data-action="load" data-idx="${idx}">▶ Загрузить</button>
+        <button class="sd-btn" data-action="copy" data-idx="${idx}" data-url="${encodeURIComponent(scUrl)}">📋 Ссылка</button>
+        <button class="sd-btn sd-del" data-action="del" data-idx="${idx}">🗑</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  list.querySelectorAll(".sd-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = +btn.dataset.idx;
+      const act = btn.dataset.action;
+      const saved = getSaved();
+      if (act === "del") {
+        saved.splice(idx, 1);
+        setSaved(saved);
+        updateLikeBtn();
+        renderSaved();
+      } else if (act === "copy") {
+        const url = decodeURIComponent(btn.dataset.url);
+        navigator.clipboard.writeText(url).then(() => {
+          btn.textContent = "✅"; setTimeout(() => { btn.textContent = "📋 Ссылка"; }, 1800);
+        }).catch(() => { btn.textContent = "⚠️"; });
+      } else if (act === "load") {
+        loadSavedDeck(saved[idx]);
+      }
+    });
+  });
+}
+
+function buildSavedLink(deckArr) {
+  const ids   = deckArr.map(d => d.id);
+  const slots = deckArr.map(d => (d.tag === "evo" || d.tag === "wild") ? "1" : "0");
+  const params = new URLSearchParams({
+    deck: ids.join(";"), slots: slots.join(";"), tt: String(TT_DEFAULT), l: "CRRandom",
+  });
+  return `${LINK_BASE}?${params.toString().replace(/%3B/g,";")}`;
+}
+
+function loadSavedDeck(saved) {
+  // Restore deck from saved data (cards may not be in allCards if data shifted)
+  currentMode = saved.mode;
+  currentDeck = saved.deck.map(d => ({
+    card: { key:d.key, name:d.name, id:d.id, elixir:d.elixir, type:d.type, rarity:d.rarity, canEvo:d.canEvo },
+    tag: d.tag, _userTag: d.tag,
+  }));
+
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode===saved.mode));
+  document.getElementById("result-title").textContent = saved.title + " (сохр.)";
+  document.getElementById("note-box").classList.remove("visible");
+
+  _renderDeckDOM(currentDeck);
+  const links = buildLinks(currentDeck, saved.mode);
+  renderLinks(links);
+  renderQR(links.supercell);
+  updateLikeBtn();
+
+  const area = document.getElementById("result-area");
+  area.classList.add("visible");
+  area.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+document.getElementById("like-btn").addEventListener("click", saveDeck);
+
+// Render saved decks on page load
+renderSaved();
+
+init();
+</script>
+</body>
+</html>
