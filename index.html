@@ -386,8 +386,8 @@
     <input type="checkbox" id="heroism-mode-toggle">
     <span class="toggle-slider"></span>
   </label>
-  <span class="toggle-label" id="heroism-toggle-label">Режим Героизм (Supercell-формат)</span>
-  <span style="color:var(--muted);font-size:10px;margin-left:6px">— каждый дек получает Evo в слот 1 + Hero в слот 2 + Wild в слот 3</span>
+  <span class="toggle-label" id="heroism-toggle-label">Supercell-стиль</span>
+  <span style="color:var(--muted);font-size:10px;margin-left:6px">— Evo + Win Condition + Building + Big spell + Small spell + Air troop · avg 3.4–4.6</span>
 </div>
 
 <div class="wrap">
@@ -640,6 +640,30 @@ const EVO_KEYS = new Set([
 // Attacking buildings for Siege mode
 const ATCK_BUILDINGS = new Set(["x-bow","mortar","goblin-drill"]);
 
+// ── SUPERCELL MODE ROLE POOLS ──
+const WIN_CON_KEYS = new Set([
+  "hog-rider","giant","royal-giant","balloon","lava-hound","goblin-barrel",
+  "miner","graveyard","x-bow","mortar","three-musketeers","golem","pekka",
+  "mega-knight","wall-breakers","battle-ram","ram-rider","goblin-drill",
+  "skeleton-barrel","goblin-giant","elixir-golem","electro-giant","prince",
+  "royal-hogs","night-witch","sparky","elite-barbarians",
+  "mighty-miner","skeleton-king","archer-queen","golden-knight","monk",
+  "little-prince","goblinstein","boss-bandit",
+]);
+const BIG_SPELL_KEYS = new Set([
+  "fireball","poison","rocket","lightning","earthquake","clone","freeze","rage","tornado",
+]);
+const SMALL_SPELL_KEYS = new Set([
+  "zap","the-log","giant-snowball","arrows","barbarian-barrel","royal-delivery",
+  "heal-spirit","goblin-barrel","mirror",
+]);
+const AIR_KEYS = new Set([
+  "musketeer","wizard","archers","mega-minion","baby-dragon","minions","minion-horde",
+  "princess","hunter","dart-goblin","executioner","firecracker","electro-dragon",
+  "inferno-dragon","bats","skeleton-dragons","magic-archer","flying-machine",
+  "electro-wizard","phoenix","ice-wizard","zappies","spear-goblins",
+]);
+
 // New cards 2025–2026
 const NEW_CARD_KEYS = new Set([
   "berserker","boss-bandit","spirit-empress","vines","rune-giant",
@@ -673,7 +697,10 @@ async function init() {
   try {
     const res = await fetch(CARDS_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    processCards(await res.json());
+    const raw = await res.json();
+    processCards(raw);
+    const excluded = raw.filter(c => c.type === "Tower Troop" || c.key.startsWith("super-") || ["party-hut","party-rocket","santa-hog-rider"].includes(c.key));
+    console.log(`API: ${raw.length} total, excluded: ${excluded.map(c=>c.key).join(", ")}, result: ${allCards.length}`);
     setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo`);
   } catch(e) {
     setStatus("error", "⚠️ Офлайн — встроенный пул");
@@ -1185,9 +1212,9 @@ function run(modeKey) {
   // Strip any leftover user overrides
   currentDeck.forEach(d => { d.tag = null; d._userTag = null; });
 
-  // Apply Supercell heroism format if toggle is on
+  // If Supercell mode toggle is on — rebuild deck with Supercell role template
   if (heroismToggle && heroismToggle.checked) {
-    applyHeroismFormat(currentDeck);
+    currentDeck = buildSupercellDeck();
   }
 
   document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode===modeKey));
@@ -1231,79 +1258,63 @@ heroismToggle.addEventListener("change", () => {
   if (currentMode) run(currentMode);
 });
 
-function applyHeroismFormat(deck) {
-  // Slot 0 = EVO (pick from evo-capable cards already in deck, or swap in one)
-  // Slot 1 = HERO (pick from heroes already in deck, or swap in one)
-  // Slot 2 = WILD (second hero or second evo from deck)
-  // Slots 3-7 = regular (tag = null)
+// Supercell-style deck: 1 win-con + 1 building + 1 big spell + 1 small spell +
+// 1 air-hitter + 1 evo (slot 0) + 1 champion/support + 1 wildcard
+// avg elixir 3.4–4.6 with retry
+function buildSupercellDeck() {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const used = new Set();
+    const deck = [];
 
-  // Reset all tags first
-  deck.forEach(d => { d.tag = null; d._userTag = null; });
-
-  // Collect positions by type
-  const heroIdxs = deck.map((d,i)=>d.card.type==="Hero"?i:-1).filter(i=>i>=0);
-  const evoIdxs  = deck.map((d,i)=>d.card.canEvo&&d.card.type!=="Hero"?i:-1).filter(i=>i>=0);
-
-  // --- Slot 0: EVO ---
-  let evoSlotIdx = evoIdxs[0] ?? -1;
-  if (evoSlotIdx < 0) {
-    // No evo card in deck — swap slot 0 with a random evo card not in deck
-    const used = new Set(deck.map(d=>d.card.key));
-    used.delete(deck[0].card.key);
-    const evoOpt = evoCards.filter(c=>!used.has(c.key));
-    if (evoOpt.length) {
-      deck[0] = entry(evoOpt[Math.floor(Math.random()*evoOpt.length)], "evo");
-      evoSlotIdx = 0;
+    function addFrom(pool, tag = null) {
+      const opts = pool.filter(c => !used.has(c.key));
+      if (!opts.length) return false;
+      const c = opts[Math.floor(Math.random() * opts.length)];
+      used.add(c.key);
+      deck.push(entry(c, tag));
+      return true;
     }
-  } else if (evoSlotIdx !== 0) {
-    // Move the evo card to position 0
-    [deck[0], deck[evoSlotIdx]] = [deck[evoSlotIdx], deck[0]];
-    evoSlotIdx = 0;
-  }
-  deck[0].tag = "evo";
 
-  // --- Slot 1: HERO ---
-  let heroSlotIdx = heroIdxs[0] ?? -1;
-  if (heroIdxs.includes(0)) {
-    // The hero ended up at 0 after the swap — use second hero for slot 1
-    heroSlotIdx = heroIdxs[1] ?? -1;
-  }
-  if (heroSlotIdx < 0) {
-    // No hero in deck — swap slot 1 with a random hero
-    const used = new Set(deck.map(d=>d.card.key));
-    used.delete(deck[1].card.key);
-    const heroOpt = heroes.filter(c=>!used.has(c.key));
-    if (heroOpt.length) {
-      deck[1] = entry(heroOpt[Math.floor(Math.random()*heroOpt.length)], "hero");
-      heroSlotIdx = 1;
-    }
-  } else if (heroSlotIdx !== 1) {
-    [deck[1], deck[heroSlotIdx]] = [deck[heroSlotIdx], deck[1]];
-    heroSlotIdx = 1;
-  }
-  deck[1].tag = "hero";
+    // Slot 0: EVO (evo-capable card marked as evo)
+    const evoPick = evoCards.filter(c => !used.has(c.key));
+    if (!evoPick.length) continue;
+    const evoCard = evoPick[Math.floor(Math.random() * evoPick.length)];
+    used.add(evoCard.key); deck.push(entry(evoCard, "evo"));
 
-  // --- Slot 2: WILD (second hero or second evo) ---
-  // Recalculate after swaps
-  const heroIdxs2 = deck.map((d,i)=>i>1&&d.card.type==="Hero"?i:-1).filter(i=>i>=0);
-  const evoIdxs2  = deck.map((d,i)=>i>1&&d.card.canEvo&&d.card.type!=="Hero"?i:-1).filter(i=>i>=0);
-  const wildCand  = heroIdxs2[0] ?? evoIdxs2[0] ?? -1;
+    // Slot 1: Win Condition
+    const winPool = allCards.filter(c => WIN_CON_KEYS.has(c.key) && !used.has(c.key));
+    if (!addFrom(winPool)) continue;
 
-  if (wildCand >= 0 && wildCand !== 2) {
-    [deck[2], deck[wildCand]] = [deck[wildCand], deck[2]];
+    // Slot 2: Building (defensive)
+    const bldgPool = buildings.filter(c => !ATCK_BUILDINGS.has(c.key) && !used.has(c.key));
+    if (!addFrom(bldgPool.length ? bldgPool : buildings)) continue;
+
+    // Slot 3: Big spell
+    const bigPool = spells.filter(c => BIG_SPELL_KEYS.has(c.key) && !used.has(c.key));
+    if (!addFrom(bigPool)) continue;
+
+    // Slot 4: Small spell
+    const smallPool = spells.filter(c => SMALL_SPELL_KEYS.has(c.key) && !used.has(c.key));
+    if (!addFrom(smallPool)) continue;
+
+    // Slot 5: Air-hitting troop
+    const airPool = troops.filter(c => AIR_KEYS.has(c.key) && !used.has(c.key));
+    if (!addFrom(airPool)) continue;
+
+    // Slots 6-7: Support/wildcard from remaining
+    const restPool = allCards.filter(c => !used.has(c.key));
+    if (!addFrom(restPool)) continue;
+    if (!addFrom(allCards.filter(c => !used.has(c.key)))) continue;
+
+    // Check avg elixir 3.4–4.6
+    const avg = deck.reduce((s, d) => s + d.card.elixir, 0) / deck.length;
+    if (avg < 3.4 || avg > 4.6) continue;
+
+    return deck;
   }
-  if (deck[2].card.canEvo || deck[2].card.type === "Hero") {
-    deck[2].tag = "wild";
-  } else {
-    // Try to find any evo/hero in remaining slots and swap to position 2
-    const remaining = deck.slice(2).map((d,i)=>[i+2,d]).find(([,d])=>d.card.canEvo||d.card.type==="Hero");
-    if (remaining) {
-      const [ri] = remaining;
-      [deck[2], deck[ri]] = [deck[ri], deck[2]];
-      deck[2].tag = "wild";
-    }
-  }
-  return deck;
+  // Fallback: just return a tagged evo + 7 random
+  const evo = pick(evoCards, 1).map(c => entry(c, "evo"));
+  return fillTo8(evo, allCards);
 }
 
 // ══════════════════════════════════════════════
