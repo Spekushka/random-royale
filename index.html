@@ -264,6 +264,15 @@
     }
     .note-box.visible { display: block; }
 
+    .tower-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; padding: 8px 12px;
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+    }
+    .tower-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .tower-img   { width: 40px; height: 40px; object-fit: contain; border-radius: 6px; }
+    .tower-name  { font-size: 13px; font-weight: 600; color: var(--orange); }
+
     .links-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
     .links-grid > * { min-width: 0; }
     @media (max-width: 600px) { .links-grid { grid-template-columns: 1fr; } }
@@ -631,6 +640,12 @@
 
     <div class="note-box" id="note-box"></div>
 
+    <div class="tower-row" id="tower-row" style="display:none">
+      <span class="tower-label">Башня:</span>
+      <img class="tower-img" id="tower-img" src="" alt="">
+      <span class="tower-name" id="tower-name"></span>
+    </div>
+
     <div class="links-grid">
       <div class="link-card">
         <h4>Supercell Deeplink <span class="badge b-sc">В ИГРУ</span></h4>
@@ -683,6 +698,23 @@ const LINK_BASE   = "https://link.clashroyale.com/en/?clashroyale://copyDeck";
 const ROYALE_BASE = "https://royaleapi.com/decks/stats/";
 const DS_BASE     = "https://www.deckshop.pro/check/?deck=";
 const TT_DEFAULT  = 159000000;
+
+const TOWERS = [
+  { name: "Принцесса", key: "tower-princess",  img: "https://cdn.royaleapi.com/static/img/cards-150/tower-princess.png" },
+  { name: "Канонир",   key: "cannoneer",        img: "https://cdn.royaleapi.com/static/img/cards-150/cannoneer.png" },
+  { name: "Герцогиня", key: "dagger-duchess",   img: "https://cdn.royaleapi.com/static/img/cards-150/dagger-duchess.png" },
+  { name: "Повар",     key: "royal-chef",       img: "https://cdn.royaleapi.com/static/img/cards-150/royal-chef.png" },
+];
+
+function rollTower() {
+  const t = TOWERS[Math.floor(Math.random() * TOWERS.length)];
+  const row  = document.getElementById("tower-row");
+  const img  = document.getElementById("tower-img");
+  const name = document.getElementById("tower-name");
+  row.style.display = "flex";
+  img.src = t.img; img.alt = t.name;
+  name.textContent = t.name;
+}
 
 const DS_MAP = {
   "the-log":"Log","skeletons":"Skellies","x-bow":"XBow","electro-wizard":"eWiz",
@@ -1437,7 +1469,15 @@ function run(modeKey) {
   mo.note ? (noteEl.textContent="ℹ️ "+mo.note, noteEl.classList.add("visible"))
            : noteEl.classList.remove("visible");
 
+  // Champion always at slot 1 or 2 (index 1 or 2)
+  const champIdx = currentDeck.findIndex(d => d.card.rarity === "Champion");
+  if (champIdx !== -1 && champIdx !== 1 && champIdx !== 2) {
+    const targetIdx = Math.random() < 0.5 ? 1 : 2;
+    [currentDeck[champIdx], currentDeck[targetIdx]] = [currentDeck[targetIdx], currentDeck[champIdx]];
+  }
+
   renderDeck(currentDeck);
+  rollTower();
   const links = buildLinks(currentDeck, modeKey);
   renderLinks(links);
   renderQR(links.supercell);
