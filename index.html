@@ -24,7 +24,8 @@
       --gold:    #ffd700;
     }
 
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+    html { overflow-x: hidden; }
 
     header {
       background: linear-gradient(135deg, #1a1f2e, var(--bg));
@@ -263,7 +264,8 @@
     }
     .note-box.visible { display: block; }
 
-    .links-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .links-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+    .links-grid > * { min-width: 0; }
     @media (max-width: 600px) { .links-grid { grid-template-columns: 1fr; } }
 
     .link-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:14px; }
@@ -273,7 +275,7 @@
     .b-ra { background:#388bfd22; color:var(--blue); }
     .b-ds { background:#3fb95022; color:var(--green); }
 
-    .url-row { display:flex; gap:6px; align-items:center; }
+    .url-row { display:flex; gap:6px; align-items:center; min-width:0; }
     .url-text {
       flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px;
       padding:6px 8px; font-size:10px; font-family:'Consolas',monospace;
