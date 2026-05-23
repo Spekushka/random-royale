@@ -378,7 +378,7 @@
   <div class="litem"><span class="lbadge lb-evo">EVO</span> Слот 1 — Эволюция (пассивный буфф)</div>
   <div class="litem"><span class="lbadge lb-hero">HERO</span> Слот 2 — Герой (активная способность)</div>
   <div class="litem"><span class="lbadge lb-wild">WILD</span> Слот 3 — Дикий (Evo или Hero на выбор)</div>
-  <div class="litem" style="margin-left:auto;color:var(--muted);font-size:10px">13 Heroes · 40 Evo · данные: royaleapi.github.io</div>
+  <div class="litem" style="margin-left:auto;color:var(--muted);font-size:10px">40 Evo · Heroes = модификация · данные: royaleapi.github.io</div>
 </div>
 
 <div class="heroism-toggle-bar">
@@ -674,7 +674,7 @@ async function init() {
     const res = await fetch(CARDS_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     processCards(await res.json());
-    setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo · ${heroes.length} Heroes`);
+    setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo`);
   } catch(e) {
     setStatus("error", "⚠️ Офлайн — встроенный пул");
     processCards(getFallback());
@@ -699,18 +699,10 @@ function processCards(raw) {
       isNew:  NEW_CARD_KEYS.has(c.key),
     }));
 
-  // Heroes are separate from the regular pool — stored only in `heroes` array
-  const existingKeys = new Set(allCards.map(c => c.key));
-  const heroPool = [...allCards.filter(c => c.type === "Hero")];
-  HERO_FALLBACK.forEach(h => { if (!existingKeys.has(h.key)) heroPool.push(h); });
-
-  // allCards = only regular playable cards (Troop/Building/Spell, no Champions, no Heroes)
-  allCards = allCards.filter(c => c.type !== "Hero");
-
   troops      = allCards.filter(c => c.type === "Troop");
   buildings   = allCards.filter(c => c.type === "Building");
   spells      = allCards.filter(c => c.type === "Spell");
-  heroes      = heroPool;
+  heroes      = troops; // Heroes = модификация обычных карт, не отдельный пул
   legendaries = allCards.filter(c => c.rarity === "Legendary");
   commons     = allCards.filter(c => c.rarity === "Common");
   evoCards    = allCards.filter(c => c.canEvo);
