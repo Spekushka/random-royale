@@ -775,6 +775,7 @@ let heroes      = [];
 let legendaries = [];
 let commons     = [];
 let evoCards    = [];
+let heroCards   = [];
 let newCards    = [];
 
 let currentMode = null;
@@ -786,23 +787,22 @@ let currentDeck = null;
 
 async function init() {
   processCards(OFFICIAL_CARDS);
-  const champCount = allCards.filter(c => c.rarity === "Champion").length;
-  setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo · ${champCount} Champions`);
+  setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo · ${heroCards.length} Heroism`);
   const leg = document.getElementById("legend-stats");
-  if (leg) leg.textContent = `${evoCards.length} Evo · ${champCount} Champions · данные: api.clashroyale.com`;
+  if (leg) leg.textContent = `${evoCards.length} Evo · ${heroCards.length} Heroism · данные: api.clashroyale.com`;
 }
 
 // Official Supercell API data (api.clashroyale.com/v1/cards), May 2026
 // type inferred from ID range: 26000xxx=Troop, 27000xxx=Building, 28000xxx=Spell
 // Champions identified by rarity=champion in API
 const OFFICIAL_CARDS = [
-  {key:"knight",id:26000000,name:"Knight",elixir:3,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/jAj1Q5rclXxU9kVImGqSJxa4wEMfEhvwNQ_4jiGUuqg.png",canEvo:true},
+  {key:"knight",id:26000000,name:"Knight",elixir:3,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/jAj1Q5rclXxU9kVImGqSJxa4wEMfEhvwNQ_4jiGUuqg.png",canEvo:true,canHero:true},
   {key:"archers",id:26000001,name:"Archers",elixir:3,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/W4Hmp8MTSdXANN8KdblbtHwtsbt0o749BbxNqmJYfA8.png",canEvo:true},
-  {key:"goblins",id:26000002,name:"Goblins",elixir:2,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/X_DQUye_OaS3QN6VC9CPw05Fit7wvSm3XegXIXKP--0.png"},
-  {key:"giant",id:26000003,name:"Giant",elixir:5,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Axr4ox5_b7edmLsoHxBX3vmgijAIibuF6RImTbqLlXE.png"},
+  {key:"goblins",id:26000002,name:"Goblins",elixir:2,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/X_DQUye_OaS3QN6VC9CPw05Fit7wvSm3XegXIXKP--0.png",canHero:true},
+  {key:"giant",id:26000003,name:"Giant",elixir:5,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Axr4ox5_b7edmLsoHxBX3vmgijAIibuF6RImTbqLlXE.png",canHero:true},
   {key:"pekka",id:26000004,name:"P.E.K.K.A",elixir:7,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/MlArURKhn_zWAZY-Xj1qIRKLVKquarG25BXDjUQajNs.png",canEvo:true},
   {key:"minions",id:26000005,name:"Minions",elixir:3,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/yHGpoEnmUWPGV_hBbhn-Kk-Bs838OjGzWzJJlQpQKQA.png"},
-  {key:"balloon",id:26000006,name:"Balloon",elixir:5,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/qBipxLo-3hhCnPrApp2Nn3b2NgrSrvwzWytvREev0CY.png"},
+  {key:"balloon",id:26000006,name:"Balloon",elixir:5,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/qBipxLo-3hhCnPrApp2Nn3b2NgrSrvwzWytvREev0CY.png",canHero:true},
   {key:"witch",id:26000007,name:"Witch",elixir:5,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/cfwk1vzehVyHC-uloEIH6NOI0hOdofCutR5PyhIgO6w.png",canEvo:true},
   {key:"barbarians",id:26000008,name:"Barbarians",elixir:5,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/TvJsuu2S4yhyk1jVYUAQwdKOnW4U77KuWWOTPOWnwfI.png",canEvo:true},
   {key:"golem",id:26000009,name:"Golem",elixir:8,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/npdmCnET7jmVjJvjJQkFnNSNnDxYHDBigbvIAloFMds.png"},
@@ -810,11 +810,11 @@ const OFFICIAL_CARDS = [
   {key:"valkyrie",id:26000011,name:"Valkyrie",elixir:4,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/0lIoYf3Y_plFTzo95zZL93JVxpfb3MMgFDDhgSDGU9A.png",canEvo:true},
   {key:"skeleton-army",id:26000012,name:"Skeleton Army",elixir:3,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/fAOToOi1pRy7svN2xQS6mDkhQw2pj9m_17FauaNqyl4.png",canEvo:true},
   {key:"bomber",id:26000013,name:"Bomber",elixir:2,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/12n1CesxKIcqVYntjxcF36EFA-ONw7Z-DoL0_rQrbdo.png",canEvo:true},
-  {key:"musketeer",id:26000014,name:"Musketeer",elixir:4,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Tex1C48UTq9FKtAX-3tzG0FJmc9jzncUZG3bb5Vf-Ds.png",canEvo:true},
+  {key:"musketeer",id:26000014,name:"Musketeer",elixir:4,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Tex1C48UTq9FKtAX-3tzG0FJmc9jzncUZG3bb5Vf-Ds.png",canEvo:true,canHero:true},
   {key:"baby-dragon",id:26000015,name:"Baby Dragon",elixir:4,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/cjC9n4AvEZJ3urkVh-rwBkJ-aRSsydIMqSAV48hAih0.png",canEvo:true},
   {key:"prince",id:26000016,name:"Prince",elixir:5,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/3JntJV62aY0G1Qh6LIs-ek-0ayeYFY3VItpG7cb9I60.png"},
-  {key:"wizard",id:26000017,name:"Wizard",elixir:5,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Mej7vnv4H_3p_8qPs_N6_GKahy6HDr7pU7i9eTHS84U.png",canEvo:true},
-  {key:"mini-pekka",id:26000018,name:"Mini P.E.K.K.A",elixir:4,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Fmltc4j3Ve9vO_xhHHPEO3PRP3SmU2oKp2zkZQHRZT4.png"},
+  {key:"wizard",id:26000017,name:"Wizard",elixir:5,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Mej7vnv4H_3p_8qPs_N6_GKahy6HDr7pU7i9eTHS84U.png",canEvo:true,canHero:true},
+  {key:"mini-pekka",id:26000018,name:"Mini P.E.K.K.A",elixir:4,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Fmltc4j3Ve9vO_xhHHPEO3PRP3SmU2oKp2zkZQHRZT4.png",canHero:true},
   {key:"spear-goblins",id:26000019,name:"Spear Goblins",elixir:2,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/FSDFotjaXidI4ku_WFpVCTWS1hKGnFh1sxX0lxM43_E.png"},
   {key:"giant-skeleton",id:26000020,name:"Giant Skeleton",elixir:6,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/0p0gd0XaVRu1Hb1iSG1hTYbz2AN6aEiZnhaAib5O8Z8.png"},
   {key:"hog-rider",id:26000021,name:"Hog Rider",elixir:4,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/Ubu0oUl8tZkusnkZf8Xv9Vno5IO29Y-jbZ4fhoNJ5oc.png"},
@@ -823,19 +823,19 @@ const OFFICIAL_CARDS = [
   {key:"royal-giant",id:26000024,name:"Royal Giant",elixir:6,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/mnlRaNtmfpQx2e6mp70sLd0ND-pKPF70Cf87_agEKg4.png",canEvo:true},
   {key:"guards",id:26000025,name:"Guards",elixir:3,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/1ArKfLJxYo6_NU_S9cAeIrfbXqWH0oULVJXedxBXQlU.png"},
   {key:"princess",id:26000026,name:"Princess",elixir:3,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/bAwMcqp9EKVIKH3ZLm_m0MqZFSG72zG-vKxpx8aKoVs.png"},
-  {key:"dark-prince",id:26000027,name:"Dark Prince",elixir:4,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/M7fXlrKXHu2IvpSGpk36kXVstslbR08Bbxcy0jQcln8.png"},
+  {key:"dark-prince",id:26000027,name:"Dark Prince",elixir:4,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/M7fXlrKXHu2IvpSGpk36kXVstslbR08Bbxcy0jQcln8.png",canHero:true},
   {key:"three-musketeers",id:26000028,name:"Three Musketeers",elixir:9,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/_J2GhbkX3vswaFk1wG-dopwiHyNc_YiPhwroiKF3Mek.png"},
   {key:"lava-hound",id:26000029,name:"Lava Hound",elixir:7,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/unicRQ975sBY2oLtfgZbAI56ZvaWz7azj-vXTLxc0r8.png"},
   {key:"ice-spirit",id:26000030,name:"Ice Spirit",elixir:1,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/lv1budiafU9XmSdrDkk0NYyqASAFYyZ06CPysXKZXlA.png",canEvo:true},
   {key:"fire-spirit",id:26000031,name:"Fire Spirit",elixir:1,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/16-BqusVvynIgYI8_Jci3LDC-r8AI_xaIYLgXqtlmS8.png"},
   {key:"miner",id:26000032,name:"Miner",elixir:3,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/Y4yWvdwBCg2FpAZgs8T09Gy34WOwpLZW-ttL52Ae8NE.png"},
   {key:"sparky",id:26000033,name:"Sparky",elixir:6,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/2GKMkBrArZXgQxf2ygFjDs4VvGYPbx8F6Lj_68iVhIM.png"},
-  {key:"bowler",id:26000034,name:"Bowler",elixir:5,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/SU4qFXmbQXWjvASxVI6z9IJuTYolx4A0MKK90sTIE88.png"},
+  {key:"bowler",id:26000034,name:"Bowler",elixir:5,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/SU4qFXmbQXWjvASxVI6z9IJuTYolx4A0MKK90sTIE88.png",canHero:true},
   {key:"lumberjack",id:26000035,name:"Lumberjack",elixir:4,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/E6RWrnCuk13xMX5OE1EQtLEKTZQV6B78d00y8PlXt6Q.png",canEvo:true},
   {key:"battle-ram",id:26000036,name:"Battle Ram",elixir:4,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/dyc50V2cplKi4H7pq1B3I36pl_sEH5DQrNHboS_dbbM.png",canEvo:true},
   {key:"inferno-dragon",id:26000037,name:"Inferno Dragon",elixir:4,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/y5HDbKtTbWG6En6TGWU0xoVIGs1-iQpIP4HC-VM7u8A.png",canEvo:true},
-  {key:"ice-golem",id:26000038,name:"Ice Golem",elixir:2,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/r05cmpwV1o7i7FHodtZwW3fmjbXCW34IJCsDEV5cZC4.png"},
-  {key:"mega-minion",id:26000039,name:"Mega Minion",elixir:3,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/-T_e4YLbuhPBKbYnBwQfXgynNpp5eOIN_0RracYwL9c.png"},
+  {key:"ice-golem",id:26000038,name:"Ice Golem",elixir:2,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/r05cmpwV1o7i7FHodtZwW3fmjbXCW34IJCsDEV5cZC4.png",canHero:true},
+  {key:"mega-minion",id:26000039,name:"Mega Minion",elixir:3,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/-T_e4YLbuhPBKbYnBwQfXgynNpp5eOIN_0RracYwL9c.png",canHero:true},
   {key:"dart-goblin",id:26000040,name:"Dart Goblin",elixir:3,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/BmpK3bqEAviflqHCdxxnfm-_l3pRPJw3qxHkwS55nCY.png",canEvo:true},
   {key:"goblin-gang",id:26000041,name:"Goblin Gang",elixir:3,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/NHflxzVAQT4oAz7eDfdueqpictb5vrWezn1nuqFhE4w.png"},
   {key:"electro-wizard",id:26000042,name:"Electro Wizard",elixir:4,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/RsFaHgB3w6vXsTjXdPr3x8l_GbV9TbOUCvIx07prbrQ.png"},
@@ -858,7 +858,7 @@ const OFFICIAL_CARDS = [
   {key:"royal-hogs",id:26000059,name:"Royal Hogs",elixir:5,type:"Troop",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/ASSQJG_MoVq9e81HZzo4bynMnyLNpNJMfSLb3hqydOw.png",canEvo:true},
   {key:"goblin-giant",id:26000060,name:"Goblin Giant",elixir:6,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/SoW16cY3jXBwaTDvb39DkqiVsoFVaDWbzf5QBYphJrY.png",canEvo:true},
   {key:"fisherman",id:26000061,name:"Fisherman",elixir:3,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/U2KZ3g0wyufcuA5P2Xrn3Z3lr1WiJmc5S0IWOZHgizQ.png"},
-  {key:"magic-archer",id:26000062,name:"Magic Archer",elixir:4,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/Avli3W7BxU9HQ2SoLiXnBgGx25FoNXUSFm7OcAk68ek.png"},
+  {key:"magic-archer",id:26000062,name:"Magic Archer",elixir:4,type:"Troop",rarity:"Legendary",img:"https://api-assets.clashroyale.com/cards/300/Avli3W7BxU9HQ2SoLiXnBgGx25FoNXUSFm7OcAk68ek.png",canHero:true},
   {key:"electro-dragon",id:26000063,name:"Electro Dragon",elixir:5,type:"Troop",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/tN9h6lnMNPCNsx0LMFmvpHgznbDZ1fBRkx-C7UfNmfY.png",canEvo:true},
   {key:"firecracker",id:26000064,name:"Firecracker",elixir:3,type:"Troop",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/c1rL3LO1U2D9-TkeFfAC18gP3AO8ztSwrcHMZplwL2Q.png",canEvo:true},
   {key:"mighty-miner",id:26000065,name:"Mighty Miner",elixir:4,type:"Troop",rarity:"Champion",img:"https://api-assets.clashroyale.com/cards/300/Cd9R56yraxTvJiD8xJ2qT2OdsHyh94FqOAarXpbyelo.png"},
@@ -911,7 +911,7 @@ const OFFICIAL_CARDS = [
   {key:"tornado",id:28000012,name:"Tornado",elixir:3,type:"Spell",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/QJB-QK1QJHdw4hjpAwVSyZBozc2ZWAR9pQ-SMUyKaT0.png"},
   {key:"clone",id:28000013,name:"Clone",elixir:3,type:"Spell",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/mHVCet-1TkwWq-pxVIU2ZWY9_2z7Z7wtP25ArEUsP_g.png"},
   {key:"earthquake",id:28000014,name:"Earthquake",elixir:3,type:"Spell",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/XeQXcrUu59C52DslyZVwCnbi4yamID-WxfVZLShgZmE.png"},
-  {key:"barbarian-barrel",id:28000015,name:"Barbarian Barrel",elixir:2,type:"Spell",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/Gb0G1yNy0i5cIGUHin8uoFWxqntNtRPhY_jeMXg7HnA.png"},
+  {key:"barbarian-barrel",id:28000015,name:"Barbarian Barrel",elixir:2,type:"Spell",rarity:"Epic",img:"https://api-assets.clashroyale.com/cards/300/Gb0G1yNy0i5cIGUHin8uoFWxqntNtRPhY_jeMXg7HnA.png",canHero:true},
   {key:"heal-spirit",id:28000016,name:"Heal Spirit",elixir:1,type:"Spell",rarity:"Rare",img:"https://api-assets.clashroyale.com/cards/300/GITl06sa2nGRLPvboyXbGEv5E3I-wAwn1Eqa5esggbc.png"},
   {key:"giant-snowball",id:28000017,name:"Giant Snowball",elixir:2,type:"Spell",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/7MaJLa6hK9WN2_VIshuh5DIDfGwm0wEv98gXtAxLDPs.png",canEvo:true},
   {key:"royal-delivery",id:28000018,name:"Royal Delivery",elixir:3,type:"Spell",rarity:"Common",img:"https://api-assets.clashroyale.com/cards/300/LPg7AGjGI3_xmi7gLLgGC50yKM1jJ2teWkZfoHJcIZo.png"},
@@ -924,24 +924,26 @@ const OFFICIAL_CARDS = [
 function processCards(raw) {
 
   allCards = raw.map(c => ({
-      key:    c.key,
-      name:   c.name,
-      id:     c.id,
-      elixir: c.elixir ?? 0,
-      type:   c.type,
-      rarity: c.rarity,
-      img:    c.img || null,
-      canEvo: !!c.canEvo,
-      isNew:  NEW_CARD_KEYS.has(c.key),
+      key:     c.key,
+      name:    c.name,
+      id:      c.id,
+      elixir:  c.elixir ?? 0,
+      type:    c.type,
+      rarity:  c.rarity,
+      img:     c.img || null,
+      canEvo:  !!c.canEvo,
+      canHero: !!c.canHero,
+      isNew:   NEW_CARD_KEYS.has(c.key),
     }));
 
   troops      = allCards.filter(c => c.type === "Troop");
   buildings   = allCards.filter(c => c.type === "Building");
   spells      = allCards.filter(c => c.type === "Spell");
-  heroes      = troops; // Heroes = модификация обычных карт, не отдельный пул
+  heroes      = troops;
   legendaries = allCards.filter(c => c.rarity === "Legendary");
   commons     = allCards.filter(c => c.rarity === "Common");
   evoCards    = allCards.filter(c => c.canEvo);
+  heroCards   = allCards.filter(c => c.canHero);
   newCards    = allCards.filter(c => c.isNew);
 }
 
