@@ -1466,62 +1466,34 @@ heroismToggle.addEventListener("change", () => {
 });
 
 // Supercell-style deck: 1 win-con + 1 building + 1 big spell + 1 small spell +
-// 1 air-hitter + 1 evo (slot 0) + 1 champion/support + 1 wildcard
-// avg elixir 3.4–4.6 with retry
+// Supercell-style: win-con required; evo/building/air/spell optional slots filled when possible
 function buildSupercellDeck() {
-  for (let attempt = 0; attempt < 80; attempt++) {
-    const used = new Set();
-    const deck = [];
+  const used = new Set();
+  const deck = [];
 
-    function addFrom(pool, tag = null) {
-      const opts = pool.filter(c => !used.has(c.key));
-      if (!opts.length) return false;
-      const c = opts[Math.floor(Math.random() * opts.length)];
-      used.add(c.key);
-      deck.push(entry(c, tag));
-      return true;
-    }
-
-    // Slot 0: EVO (evo-capable card marked as evo)
-    const evoPick = evoCards.filter(c => !used.has(c.key));
-    if (!evoPick.length) continue;
-    const evoCard = evoPick[Math.floor(Math.random() * evoPick.length)];
-    used.add(evoCard.key); deck.push(entry(evoCard, "evo"));
-
-    // Slot 1: Win Condition
-    const winPool = allCards.filter(c => WIN_CON_KEYS.has(c.key) && !used.has(c.key));
-    if (!addFrom(winPool)) continue;
-
-    // Slot 2: Building (defensive)
-    const bldgPool = buildings.filter(c => !ATCK_BUILDINGS.has(c.key) && !used.has(c.key));
-    if (!addFrom(bldgPool.length ? bldgPool : buildings)) continue;
-
-    // Slot 3: Big spell
-    const bigPool = spells.filter(c => BIG_SPELL_KEYS.has(c.key) && !used.has(c.key));
-    if (!addFrom(bigPool)) continue;
-
-    // Slot 4: Small spell
-    const smallPool = spells.filter(c => SMALL_SPELL_KEYS.has(c.key) && !used.has(c.key));
-    if (!addFrom(smallPool)) continue;
-
-    // Slot 5: Air-hitting troop
-    const airPool = troops.filter(c => AIR_KEYS.has(c.key) && !used.has(c.key));
-    if (!addFrom(airPool)) continue;
-
-    // Slots 6-7: Support/wildcard from remaining
-    const restPool = allCards.filter(c => !used.has(c.key));
-    if (!addFrom(restPool)) continue;
-    if (!addFrom(allCards.filter(c => !used.has(c.key)))) continue;
-
-    // Check avg elixir 3.4–4.6
-    const avg = deck.reduce((s, d) => s + d.card.elixir, 0) / deck.length;
-    if (avg < 3.4 || avg > 4.6) continue;
-
-    return deck;
+  function tryAdd(pool, tag = null) {
+    const opts = pool.filter(c => !used.has(c.key));
+    if (!opts.length) return false;
+    const c = opts[Math.floor(Math.random() * opts.length)];
+    used.add(c.key); deck.push(entry(c, tag));
+    return true;
   }
-  // Fallback: just return a tagged evo + 7 random
-  const evo = pick(evoCards, 1).map(c => entry(c, "evo"));
-  return fillTo8(evo, allCards);
+
+  // Required: Win Condition
+  const winPool = allCards.filter(c => WIN_CON_KEYS.has(c.key));
+  if (!tryAdd(winPool)) return pick(allCards, 8).map(c => entry(c));
+
+  // Optional slots — skip silently if pool empty or already used
+  tryAdd(evoCards, "evo");
+  tryAdd(buildings.filter(c => !ATCK_BUILDINGS.has(c.key)));
+  tryAdd(spells.filter(c => BIG_SPELL_KEYS.has(c.key)));
+  tryAdd(spells.filter(c => SMALL_SPELL_KEYS.has(c.key)));
+  tryAdd(troops.filter(c => AIR_KEYS.has(c.key)));
+
+  // Fill remaining slots with random cards
+  while (deck.length < 8) tryAdd(allCards);
+
+  return deck;
 }
 
 
