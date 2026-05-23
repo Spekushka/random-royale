@@ -700,20 +700,20 @@ const DS_BASE     = "https://www.deckshop.pro/check/?deck=";
 const TT_DEFAULT  = 159000000;
 
 const TOWERS = [
-  { name: "Принцесса", key: "tower-princess",  img: "https://cdn.royaleapi.com/static/img/cards-150/tower-princess.png" },
-  { name: "Канонир",   key: "cannoneer",        img: "https://cdn.royaleapi.com/static/img/cards-150/cannoneer.png" },
-  { name: "Герцогиня", key: "dagger-duchess",   img: "https://cdn.royaleapi.com/static/img/cards-150/dagger-duchess.png" },
-  { name: "Повар",     key: "royal-chef",       img: "https://cdn.royaleapi.com/static/img/cards-150/royal-chef.png" },
+  { name: "Принцесса", tt: 159000000, img: "https://cdn.royaleapi.com/static/img/cards-150/tower-princess.png" },
+  { name: "Канонир",   tt: 159000001, img: "https://cdn.royaleapi.com/static/img/cards-150/cannoneer.png" },
+  { name: "Герцогиня", tt: 159000002, img: "https://cdn.royaleapi.com/static/img/cards-150/dagger-duchess.png" },
+  { name: "Повар",     tt: 159000003, img: "https://cdn.royaleapi.com/static/img/cards-150/royal-chef.png" },
 ];
 
 function rollTower() {
-  const t = TOWERS[Math.floor(Math.random() * TOWERS.length)];
+  currentTower = TOWERS[Math.floor(Math.random() * TOWERS.length)];
   const row  = document.getElementById("tower-row");
   const img  = document.getElementById("tower-img");
   const name = document.getElementById("tower-name");
   row.style.display = "flex";
-  img.src = t.img; img.alt = t.name;
-  name.textContent = t.name;
+  img.src = currentTower.img; img.alt = currentTower.name;
+  name.textContent = currentTower.name;
 }
 
 const DS_MAP = {
@@ -812,6 +812,7 @@ let newCards    = [];
 
 let currentMode = null;
 let currentDeck = null;
+let currentTower = TOWERS[0];
 
 // ══════════════════════════════════════════════
 //  INIT
@@ -1286,7 +1287,7 @@ function buildLinks(deck, modeName) {
   const params = new URLSearchParams({
     deck:  ids.join(";"),
     slots: slots.join(";"),
-    tt:    String(TT_DEFAULT),
+    tt:    String(currentTower ? currentTower.tt : TT_DEFAULT),
     l:     modeName || "CRRandom",
   });
   return {
@@ -1669,7 +1670,7 @@ function buildSavedLink(deckArr) {
   const ids   = deckArr.map(d => d.id);
   const slots = deckArr.map(d => (d.tag === "evo" || d.tag === "wild") ? "1" : "0");
   const params = new URLSearchParams({
-    deck: ids.join(";"), slots: slots.join(";"), tt: String(TT_DEFAULT), l: "CRRandom",
+    deck: ids.join(";"), slots: slots.join(";"), tt: String(currentTower ? currentTower.tt : TT_DEFAULT), l: "CRRandom",
   });
   return `${LINK_BASE}?${params.toString().replace(/%3B/g,";")}`;
 }
