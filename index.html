@@ -359,6 +359,74 @@
       .heroism-toggle-bar { padding: 6px 14px; font-size: 11px; }
       .saved-deck-cards { display: none; }
     }
+
+    /* ── ALL CARDS SECTION ── */
+    .allcards-toggle-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted); font-size: 12px;
+      padding: 6px 14px; cursor: pointer; transition: all .15s;
+      margin-bottom: 16px;
+    }
+    .allcards-toggle-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .allcards-toggle-btn.open  { border-color: var(--orange); color: var(--orange); }
+
+    #allcards-section { display: none; margin-bottom: 32px; }
+    #allcards-section.visible { display: block; }
+
+    .allcards-filters {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center;
+    }
+    .afc-btn {
+      font-size: 11px; padding: 4px 11px; border-radius: 20px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer; transition: all .12s;
+    }
+    .afc-btn:hover { border-color: var(--text); color: var(--text); }
+    .afc-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+    .afc-search {
+      flex: 1; min-width: 140px; max-width: 240px;
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 20px;
+      padding: 4px 12px; font-size: 11px; color: var(--text); outline: none;
+    }
+    .afc-search:focus { border-color: var(--orange); }
+    .afc-count { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+    .allcards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+      gap: 8px;
+    }
+    .ac-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 8px 4px 6px; text-align: center; cursor: default;
+      transition: border-color .15s, transform .1s;
+      position: relative;
+    }
+    .ac-card:hover { border-color: var(--orange); transform: translateY(-2px); }
+    .ac-card img {
+      width: 52px; height: 52px; object-fit: contain;
+      display: block; margin: 0 auto 4px;
+      image-rendering: auto;
+    }
+    .ac-card .ac-name { font-size: 8.5px; color: var(--muted); line-height: 1.3; }
+    .ac-card .ac-elixir {
+      position: absolute; top: 3px; left: 5px;
+      font-size: 8px; color: var(--purple); font-weight: 700;
+    }
+    .ac-card .ac-evo-dot {
+      position: absolute; top: 3px; right: 4px;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--orange); display: none;
+    }
+    .ac-card.has-evo .ac-evo-dot { display: block; }
+    .ac-card .ac-rarity-dot {
+      display: inline-block; width: 5px; height: 5px; border-radius: 50%; margin-top: 3px;
+    }
+    @media (max-width: 480px) {
+      .allcards-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+      .ac-card img { width: 44px; height: 44px; }
+    }
   </style>
 </head>
 <body>
@@ -391,6 +459,24 @@
 </div>
 
 <div class="wrap">
+
+  <!-- ALL CARDS BROWSER -->
+  <button class="allcards-toggle-btn" id="allcards-toggle-btn">
+    📋 Все карты <span id="allcards-toggle-count"></span>
+  </button>
+  <div id="allcards-section">
+    <div class="allcards-filters">
+      <button class="afc-btn active" data-atype="all">Все</button>
+      <button class="afc-btn" data-atype="Troop">⚔️ Войска</button>
+      <button class="afc-btn" data-atype="Building">🏰 Здания</button>
+      <button class="afc-btn" data-atype="Spell">✨ Заклинания</button>
+      <button class="afc-btn" data-atype="evo">🧬 Есть Evo</button>
+      <input class="afc-search" id="afc-search" type="text" placeholder="Поиск...">
+      <span class="afc-count" id="afc-count"></span>
+    </div>
+    <div class="allcards-grid" id="allcards-grid"></div>
+  </div>
+
   <p class="section-title">Выбери режим рандомизации</p>
 
   <div class="modes-grid" id="modes-grid">
@@ -1538,7 +1624,90 @@ document.getElementById("like-btn").addEventListener("click", saveDeck);
 // Render saved decks on page load
 renderSaved();
 
-init();
+// ══════════════════════════════════════════════
+//  ALL CARDS BROWSER
+// ══════════════════════════════════════════════
+
+const IMG_CDN = "https://cdn.royaleapi.com/static/img/cards-150/";
+
+let acFilter = "all";
+let acSearch = "";
+
+function cardImgUrl(key) {
+  return IMG_CDN + key + ".png";
+}
+
+function renderAllCards() {
+  const grid  = document.getElementById("allcards-grid");
+  const count = document.getElementById("afc-count");
+  if (!allCards.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:12px">Карты ещё загружаются...</p>'; return; }
+
+  let pool = [...allCards];
+  if (acFilter === "evo")          pool = pool.filter(c => c.canEvo);
+  else if (acFilter !== "all")     pool = pool.filter(c => c.type === acFilter);
+  if (acSearch) {
+    const q = acSearch.toLowerCase();
+    pool = pool.filter(c => c.name.toLowerCase().includes(q) || c.key.includes(q));
+  }
+  // Sort: type → elixir → name
+  pool.sort((a,b) => {
+    const tOrder = {Troop:0,Building:1,Spell:2};
+    return (tOrder[a.type]??3)-(tOrder[b.type]??3) || a.elixir-b.elixir || a.name.localeCompare(b.name);
+  });
+
+  count.textContent = `${pool.length} карт`;
+
+  const rarityColor = {Common:"var(--muted)",Rare:"var(--blue)",Epic:"var(--purple)",Legendary:"var(--yellow)",Champion:"var(--gold)"};
+
+  grid.innerHTML = pool.map(c => {
+    const rc = rarityColor[c.rarity] || "var(--muted)";
+    return `<div class="ac-card ${c.canEvo?"has-evo":""}" title="${c.name} · ${c.type} · ${c.rarity} · ${c.elixir}💧${c.canEvo?" · EVO":""}">
+      <span class="ac-elixir">${c.elixir}💧</span>
+      <span class="ac-evo-dot" title="Есть Evolution"></span>
+      <img src="${cardImgUrl(c.key)}" alt="${c.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.fontSize='28px'">
+      <span class="dc-icon" style="display:none;font-size:22px">${TYPE_EMOJI[c.type]||"🃏"}</span>
+      <div class="ac-name">${c.name}</div>
+      <span class="ac-rarity-dot" style="background:${rc}"></span>
+    </div>`;
+  }).join("");
+}
+
+// Toggle open/close
+document.getElementById("allcards-toggle-btn").addEventListener("click", () => {
+  const sec = document.getElementById("allcards-section");
+  const btn = document.getElementById("allcards-toggle-btn");
+  const open = sec.classList.toggle("visible");
+  btn.classList.toggle("open", open);
+  btn.querySelector("span").textContent = open ? `▲ скрыть` : `▼ ${allCards.length} карт`;
+  if (open) renderAllCards();
+});
+
+// Filter buttons
+document.querySelectorAll(".afc-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".afc-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    acFilter = btn.dataset.atype;
+    renderAllCards();
+  });
+});
+
+// Search
+document.getElementById("afc-search").addEventListener("input", e => {
+  acSearch = e.target.value.trim();
+  renderAllCards();
+});
+
+// Update button label after cards load
+function updateAllCardsBtn() {
+  const btn = document.getElementById("allcards-toggle-btn");
+  const countEl = document.getElementById("allcards-toggle-count");
+  const sec = document.getElementById("allcards-section");
+  countEl.textContent = `▼ ${allCards.length} карт`;
+  if (sec.classList.contains("visible")) renderAllCards();
+}
+
+init().then(updateAllCardsBtn).catch(()=>updateAllCardsBtn());
 </script>
 </body>
 </html>
