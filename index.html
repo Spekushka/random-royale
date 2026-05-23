@@ -1467,8 +1467,7 @@ heroismToggle.addEventListener("change", () => {
   if (currentMode) run(currentMode);
 });
 
-// Supercell-style deck: 1 win-con + 1 building + 1 big spell + 1 small spell +
-// Supercell-style: win-con required; evo/building/air/spell optional slots filled when possible
+// Supercell-style: win-con required; evo/building/air optional; spell count weighted
 function buildSupercellDeck() {
   const used = new Set();
   const deck = [];
@@ -1485,14 +1484,26 @@ function buildSupercellDeck() {
   const winPool = allCards.filter(c => WIN_CON_KEYS.has(c.key));
   if (!tryAdd(winPool)) return pick(allCards, 8).map(c => entry(c));
 
-  // Optional slots — skip silently if pool empty or already used
+  // Optional
   tryAdd(evoCards, "evo");
   tryAdd(buildings.filter(c => !ATCK_BUILDINGS.has(c.key)));
-  tryAdd(spells.filter(c => BIG_SPELL_KEYS.has(c.key)));
-  tryAdd(spells.filter(c => SMALL_SPELL_KEYS.has(c.key)));
   tryAdd(troops.filter(c => AIR_KEYS.has(c.key)));
 
-  // Fill remaining slots with random cards
+  // Spell slots: 80% = big+small, 10% = small+small, 10% = big+small+extra
+  const r = Math.random();
+  if (r < 0.80) {
+    tryAdd(spells.filter(c => BIG_SPELL_KEYS.has(c.key)));
+    tryAdd(spells.filter(c => SMALL_SPELL_KEYS.has(c.key)));
+  } else if (r < 0.90) {
+    tryAdd(spells.filter(c => SMALL_SPELL_KEYS.has(c.key)));
+    tryAdd(spells.filter(c => SMALL_SPELL_KEYS.has(c.key)));
+  } else {
+    tryAdd(spells.filter(c => BIG_SPELL_KEYS.has(c.key)));
+    tryAdd(spells.filter(c => SMALL_SPELL_KEYS.has(c.key)));
+    tryAdd(spells.filter(c => !used.has(c.key)));
+  }
+
+  // Fill remaining slots
   while (deck.length < 8) tryAdd(allCards);
 
   return deck;
