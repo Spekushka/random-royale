@@ -450,7 +450,7 @@
   <div class="litem"><span class="lbadge lb-evo">EVO</span> Слот 1 — Эволюция (пассивный буфф)</div>
   <div class="litem"><span class="lbadge lb-hero">HERO</span> Слот 2 — Герой (активная способность)</div>
   <div class="litem"><span class="lbadge lb-wild">WILD</span> Слот 3 — Дикий (Evo или Hero на выбор)</div>
-  <div class="litem" style="margin-left:auto;color:var(--muted);font-size:10px">40 Evo · Heroes = модификация · данные: royaleapi.github.io</div>
+  <div class="litem" id="legend-stats" style="margin-left:auto;color:var(--muted);font-size:10px">— Evo · Heroes = модификация · данные: api.clashroyale.com</div>
 </div>
 
 <div class="heroism-toggle-bar">
@@ -787,6 +787,8 @@ let currentDeck = null;
 async function init() {
   processCards(OFFICIAL_CARDS);
   setStatus("ready", `✅ ${allCards.length} карт · ${evoCards.length} Evo`);
+  const leg = document.getElementById("legend-stats");
+  if (leg) leg.textContent = `${evoCards.length} Evo · Heroes = модификация · данные: api.clashroyale.com`;
 }
 
 // Official Supercell API data (api.clashroyale.com/v1/cards), May 2026
